@@ -1,0 +1,6 @@
+{
+  "name": "VnExpress Editorial Review - Nhận xét Đề tài Tòa soạn",
+  "description": "Hệ thống thống kê traffic, phân loại bài viết hiệu quả và nhận xét đề tài tòa soạn VnExpress hàng ngày.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
