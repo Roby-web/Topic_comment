@@ -36,16 +36,16 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
   const [selectedBan, setSelectedBan] = useState<string>('all');
   const [selectedStoryForModal, setSelectedStoryForModal] = useState<StoryItem | null>(null);
 
-  // Compute Vietnamese date string for the title
+  // Compute Vietnamese date string for the title format: (Thứ ba - 22/9)
   const effectiveDateYmd = storyDate || selectedDate;
   const getFormattedStoryDate = (ymd: string) => {
     try {
       const parts = ymd.split('-');
       if (parts.length === 3) {
         const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-        const dayNames = ['Chủ nhật', 'thứ hai', 'thứ ba', 'thứ tư', 'thứ năm', 'thứ sáu', 'thứ bảy'];
+        const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
         const dayName = dayNames[d.getDay()];
-        return `${dayName}, ${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+        return `${dayName} - ${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
       }
     } catch {
       // fallback
@@ -118,13 +118,18 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
     return list;
   }, [activeTab, pendingStories, publishedStories, selectedBan, searchQuery]);
 
+  // Format deadline according to Rule.md Section 2: {Giờ}:{Phút}, {Ngày}/{Tháng}
   const formatDeadline = (todate?: string) => {
     if (!todate) return 'Chưa có hạn';
     try {
       const ts = parseInt(todate, 10);
       if (isNaN(ts)) return todate;
       const d = new Date(ts * 1000);
-      return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const day = d.getDate();
+      const month = d.getMonth() + 1;
+      return `${hours}:${minutes}, ${day}/${month}`;
     } catch {
       return todate;
     }
@@ -191,7 +196,7 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-4 bg-[#9f224e] rounded-xs" />
             <h2 className="font-bold text-slate-900 text-sm tracking-tight">
-              Đề tài Quan trọng ngày {storyDateTitle}
+              Đề tài quan trọng ({storyDateTitle})
             </h2>
           </div>
           <span className="text-[11px] text-slate-500 font-medium shrink-0">
@@ -365,8 +370,8 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
                   )}
                 </div>
 
-                {/* Row 2: Tên đề tài */}
-                <h4 className="font-semibold text-slate-900 text-xs leading-snug group-hover:text-[#9f224e] transition-colors mb-1.5">
+                {/* Row 2: Tên đề tài - Merriweather serif for Article Titles per design.md Rule #1 */}
+                <h4 className="font-serif font-bold text-slate-900 text-xs leading-snug group-hover:text-[#9f224e] transition-colors mb-1.5">
                   {story.title}
                 </h4>
 

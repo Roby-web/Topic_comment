@@ -172,6 +172,32 @@ export const MOCK_ENGAGEMENT_GROUPS_23_09: EngagementGroup[] = [
   },
 ];
 
+export const MOCK_EDITORIAL_COMMENTS_24_09: EditorialComment[] = [
+  {
+    id: 'cm-24-09',
+    author: 'thuytrang',
+    role: 'Thư ký trực BBT',
+    dateStr: '24/09/2026',
+    updatedAt: '07:49',
+    summaryTitle: 'Nhận xét Thư ký trực ngày 24/9',
+    htmlContent: `<p class="font-medium text-slate-900 mb-2.5">Tổng quan: 69 bài TV trong đó 32 HQ (46%), 2 TT (2,9%), 17 VC (24,6%), 18 CN (26%)</p>
+<ul class="space-y-2 text-slate-800 leading-relaxed list-none pl-0">
+  <li>- Cụm tin, bài thượng đỉnh Mỹ - Trung các ban Thế giới, VnEGO, Giải trí cùng khai thác hiệu quả, từ cuộc Trump tiếp đón Tập tại sân bay, màn biểu diễn oanh tạc cơ, tới nhận xét về biểu cảm và trang phục các nhân vật.</li>
+  <li>- Tin, bài Bí thư Thành uỷ Tp HCM tiếp xúc cử tri: Thời sự có bài sớm nhất, Giáo dục và VnEGO cũng phát huy tốt, đều có bài Hiệu quả.</li>
+  <li>- Tin giá xăng dầu tăng: Kinh doanh của VnE lên thuộc tốp sớm nhất trong các báo, và nội dung tương đối đầy đủ hơn, chỉ ra nguyên nhân liên quan tới diễn biến phức tạp đàm phán Mỹ - Iran. Tin đạt View cao.</li>
+  <li>- Tin vụ giết người ở TP HCM: Pháp luật lên sớm, bài Hiệu quả và đạt gần 185k view. Tuy nhiên thư ký trực sơ suất không trao đổi với Pháp luật / thời sự TP HCM tiếp tục tìm hiểu.</li>
+  <li>- Đời sống có bài tốt về người nước ngoài ngạc nhiên với mô hình người già trông cậy vào con cái ở VN, tìm được điểm chạm với độc giả quan tâm tới yếu tố khác biệt văn hoá, từ đó mở ra vấn đề an sinh đáng quan tâm đối với người cao tuổi.</li>
+  <li>- Pháp luật hôm qua hoạt động rất hiệu quả, cung cấp nhiều bài cho tốp 5 thượng viện hơn thường lệ. Pháp luật, Thời sự đóng góp chính cho các bài đặt trên tốp 5 thượng viện, bên cạnh đó Thế giới, Thể thao, VnEGO, Kinh doanh hỗ trợ đắc lực.</li>
+  <li>- Xét tổng thể, hôm qua 6 ban đóng góp nhiều View nhất cho thượng viện lần lượt là Thế giới, Pháp luật, VnEGO, Kinh doanh, Thể thao, Thời sự. Nếu chỉ xét View từ các bài Hiệu quả trên thượng viện, thì Pháp luật vượt trội các ban khác.</li>
+</ul>
+<p class="mt-3 font-medium text-slate-900">Có 2 lưu ý chung:</p>
+<ul class="mt-1 space-y-2 text-slate-800 leading-relaxed list-none pl-0">
+  <li>- VnEGO có cách tính chỉ số engage có lẽ khắt khe hơn mức hợp lý, khiến bài dễ thành cân nhắc. Tầm cuối giờ chiều độc giả cần các video ngắn, khi đăng vào thời gian này phát huy được nhiều giá trị nội dung cho mặt trang và tạo nhiều lượt xem. Tuy nhiên với cách tính hiện nay, thực tế cho thấy thời gian buổi tối lthường không đủ để sản phẩm vượt trên ngưỡng Cân nhắc.</li>
+  <li>- Các lựa chọn cho tốp 5 của VnE hiện nay đang bị giới hạn, chủ yếu do Thời sự, Thế giới, Pháp luật, Kinh doanh gánh, do các ban này thường có nội dung có sức nặng phù hợp (không kể thể thao theo đặc thù riêng). Giới hạn này ảnh hưởng tới tính linh hoạt và sinh động cho mặt trang. Vì vậy, nên có chính sách khuyến khích để các ban khác có động lực để chú trọng hơn việc sản xuất các nội dung phù hợp dành cho tốp 5.</li>
+</ul>`,
+  },
+];
+
 export const MOCK_EDITORIAL_COMMENTS: EditorialComment[] = [
   {
     id: 'cm-1',

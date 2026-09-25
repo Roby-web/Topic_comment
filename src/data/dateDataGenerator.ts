@@ -4,6 +4,7 @@ import {
   MOCK_ENGAGEMENT_GROUPS_23_09,
   MOCK_STORIES,
   MOCK_EDITORIAL_COMMENTS,
+  MOCK_EDITORIAL_COMMENTS_24_09,
 } from './mockData';
 import { formatMetricNumber } from '../services/apiService';
 
@@ -33,6 +34,204 @@ export function generateDataForDateRange(
       engagementGroups: MOCK_ENGAGEMENT_GROUPS_23_09,
       stories: MOCK_STORIES,
       comment: MOCK_EDITORIAL_COMMENTS[0],
+    };
+  }
+
+  // If exact 2026-09-24 (Thứ năm, 24/9), return verified baseline comment from user's image.png
+  if (fromDate === '2026-09-24' && toDate === '2026-09-24') {
+    const seed24 = hashString('2026-09-24_2026-09-24');
+    const factor24 = 1.02;
+    const baseVneUsers = 2890000;
+    const baseVnePvs = 10840000;
+    const baseVneArts = 280;
+
+    const baseNgoisaoUsers = 361200;
+    const baseNgoisaoPvs = 1290000;
+    const baseNgoisaoArts = 58;
+
+    const baseEngUsers = 141000;
+    const baseEngPvs = 215000;
+    const baseEngArts = 44;
+
+    const baseTiasangUsers = 15800;
+    const baseTiasangPvs = 28500;
+    const baseTiasangArts = 3;
+
+    const totalUsers = baseVneUsers + baseNgoisaoUsers + baseEngUsers + baseTiasangUsers;
+    const totalPvs = baseVnePvs + baseNgoisaoPvs + baseEngPvs + baseTiasangPvs;
+    const totalArts = baseVneArts + baseNgoisaoArts + baseEngArts + baseTiasangArts;
+
+    const trafficData24: SiteTrafficRow[] = [
+      {
+        id: 'all',
+        name: 'All Sites',
+        isTotal: true,
+        users: {
+          value: totalUsers,
+          formattedValue: formatMetricNumber(totalUsers),
+          changeVsYesterday: 4.82,
+          changeVsLastWeek: -1.25,
+        },
+        pageviews: {
+          value: totalPvs,
+          formattedValue: formatMetricNumber(totalPvs),
+          changeVsYesterday: 3.14,
+          changeVsLastWeek: -0.85,
+        },
+        articles: {
+          value: totalArts,
+          formattedValue: String(totalArts),
+          changeVsYesterday: 2.15,
+          changeVsLastWeek: 1.05,
+        },
+      },
+      {
+        id: '-1',
+        name: 'VnExpress',
+        users: {
+          value: baseVneUsers,
+          formattedValue: formatMetricNumber(baseVneUsers),
+          changeVsYesterday: 5.12,
+          changeVsLastWeek: -0.92,
+        },
+        pageviews: {
+          value: baseVnePvs,
+          formattedValue: formatMetricNumber(baseVnePvs),
+          changeVsYesterday: 3.25,
+          changeVsLastWeek: -0.65,
+        },
+        articles: {
+          value: baseVneArts,
+          formattedValue: String(baseVneArts),
+          changeVsYesterday: 2.05,
+          changeVsLastWeek: 1.15,
+        },
+      },
+      {
+        id: '1002835',
+        name: 'Ngôi Sao',
+        users: {
+          value: baseNgoisaoUsers,
+          formattedValue: formatMetricNumber(baseNgoisaoUsers),
+          changeVsYesterday: 3.45,
+          changeVsLastWeek: -2.15,
+        },
+        pageviews: {
+          value: baseNgoisaoPvs,
+          formattedValue: formatMetricNumber(baseNgoisaoPvs),
+          changeVsYesterday: 2.85,
+          changeVsLastWeek: -1.45,
+        },
+        articles: {
+          value: baseNgoisaoArts,
+          formattedValue: String(baseNgoisaoArts),
+          changeVsYesterday: 3.57,
+          changeVsLastWeek: 0.0,
+        },
+      },
+      {
+        id: '1003888',
+        name: 'English',
+        users: {
+          value: baseEngUsers,
+          formattedValue: formatMetricNumber(baseEngUsers),
+          changeVsYesterday: 2.65,
+          changeVsLastWeek: 1.12,
+        },
+        pageviews: {
+          value: baseEngPvs,
+          formattedValue: formatMetricNumber(baseEngPvs),
+          changeVsYesterday: 2.35,
+          changeVsLastWeek: 0.95,
+        },
+        articles: {
+          value: baseEngArts,
+          formattedValue: String(baseEngArts),
+          changeVsYesterday: 2.32,
+          changeVsLastWeek: 2.32,
+        },
+      },
+      {
+        id: '1006614',
+        name: 'Tia Sáng',
+        users: {
+          value: baseTiasangUsers,
+          formattedValue: formatMetricNumber(baseTiasangUsers),
+          changeVsYesterday: 4.15,
+          changeVsLastWeek: 2.85,
+        },
+        pageviews: {
+          value: baseTiasangPvs,
+          formattedValue: formatMetricNumber(baseTiasangPvs),
+          changeVsYesterday: 1.82,
+          changeVsLastWeek: 3.15,
+        },
+        articles: {
+          value: baseTiasangArts,
+          formattedValue: String(baseTiasangArts),
+          changeVsYesterday: 0.0,
+          changeVsLastWeek: 0.0,
+        },
+      },
+    ];
+
+    // Groups matching the prompt: 69 bài TV: 32 HQ (46%), 2 TT (2,9%), 17 VC (24,6%), 18 CN (26%)
+    const engagementGroups24: EngagementGroup[] = [
+      {
+        id: 'hieu_qua_cao',
+        name: 'HIỆU QUẢ CAO',
+        articleCount: 32,
+        articleSharePct: 46,
+        pageviewCount: 2200000,
+        pageviewFormatted: '2.2M PV',
+        pageviewSharePct: 58,
+        pageviewChangeVsYesterday: 15,
+        pageviewChangeVsLastWeek: 8,
+        color: 'emerald',
+      },
+      {
+        id: 'views_cao',
+        name: 'VIEWS CAO',
+        articleCount: 17,
+        articleSharePct: 25,
+        pageviewCount: 750000,
+        pageviewFormatted: '0.8M PV',
+        pageviewSharePct: 20,
+        pageviewChangeVsYesterday: -8,
+        pageviewChangeVsLastWeek: -12,
+        color: 'purple',
+      },
+      {
+        id: 'tuong_tac_tot',
+        name: 'TƯƠNG TÁC TỐT',
+        articleCount: 2,
+        articleSharePct: 3,
+        pageviewCount: 120000,
+        pageviewFormatted: '0.1M PV',
+        pageviewSharePct: 3,
+        pageviewChangeVsYesterday: -45,
+        pageviewChangeVsLastWeek: -20,
+        color: 'blue',
+      },
+      {
+        id: 'can_nhac',
+        name: 'CÂN NHẮC',
+        articleCount: 18,
+        articleSharePct: 26,
+        pageviewCount: 730000,
+        pageviewFormatted: '0.7M PV',
+        pageviewSharePct: 19,
+        pageviewChangeVsYesterday: -10,
+        pageviewChangeVsLastWeek: -15,
+        color: 'amber',
+      },
+    ];
+
+    return {
+      trafficData: trafficData24,
+      engagementGroups: engagementGroups24,
+      stories: MOCK_STORIES,
+      comment: MOCK_EDITORIAL_COMMENTS_24_09[0],
     };
   }
 
@@ -271,9 +470,54 @@ export function generateDataForDateRange(
     };
   });
 
+  // 4. Generate Date-Aligned Editorial Comment
+  const dateFormattedSlash = (() => {
+    try {
+      const parts = fromDate.split('-');
+      if (parts.length === 3) {
+        return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+      }
+    } catch {}
+    return fromDate;
+  })();
+
+  const dateFullFormatted = (() => {
+    try {
+      const parts = fromDate.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+        return `${dayNames[d.getDay()]}, ${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+      }
+    } catch {}
+    return fromDate;
+  })();
+
+  const comment: EditorialComment = {
+    id: `cm-${fromDate}`,
+    author: 'thuytrang',
+    role: 'Thư ký trực BBT',
+    dateStr: dateFormattedSlash,
+    updatedAt: `${String(7 + (seed % 2)).padStart(2, '0')}:${String(10 + (seed % 40)).padStart(2, '0')}`,
+    summaryTitle: `Nhận xét Thư ký trực ngày ${dateFormattedSlash}`,
+    htmlContent: `<p class="font-medium text-slate-900 mb-2.5">Tổng quan: ${totalArtForGroups} bài TV trong đó ${hqCount} HQ (${hqPct}%), ${ttCount} TT (${ttPct}%), ${vcCount} VC (${vcPct}%), ${cnCount} CN (${cnPct}%)</p>
+<ul class="space-y-2 text-slate-800 leading-relaxed list-none pl-0">
+  <li>- Tuyến tin trọng điểm ngày ${dateFullFormatted}: Các ban Thời sự, Thế giới, Kinh doanh bám sát sự kiện nóng, nhiều bài đạt mốc đọc cao và lọt top 5 thượng viện.</li>
+  <li>- Nhóm bài Hiệu quả cao: Đạt ${(hqPv / 1_000_000).toFixed(1)}M PV, chiếm đa số tỷ trọng đọc trong ngày. Tiếp tục duy trì chất lượng biên tập cho các tuyến bài chuyên sâu.</li>
+  <li>- Các tin bài nổi bật: Đã triển khai ${shuffledStories.length} đề tài trọng điểm của tòa soạn, yêu cầu các ban chủ động theo dõi để không bị chậm nhịp so với các báo.</li>
+  <li>- Ban Pháp luật và Đời sống có bài phân tích xã hội tốt, tạo điểm chạm cao với bạn đọc và lượng tương tác bình luận tích cực.</li>
+</ul>
+<p class="mt-3 font-medium text-slate-900">Lưu ý chung:</p>
+<ul class="mt-1 space-y-2 text-slate-800 leading-relaxed list-none pl-0">
+  <li>- Cân nhắc kiểm soát kỹ các sản phẩm cuối ngày để hạn chế bài rơi vào nhóm Cân nhắc (${cnCount} bài, chiếm ${cnPct}%).</li>
+  <li>- Khuyến khích các ban chuyên đề đầu tư hơn nữa vào nội dung đa phương tiện, video ngắn để tăng khả năng vào top 5.</li>
+</ul>`,
+  };
+
   return {
     trafficData,
     engagementGroups,
     stories: shuffledStories,
+    comment,
   };
 }

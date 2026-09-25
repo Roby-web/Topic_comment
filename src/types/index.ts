@@ -54,6 +54,7 @@ export interface StoryItem {
   fromdate?: string;
   time_publishing?: string;
   comment?: string;
+  nhan_xet?: string;
   buildtop_info?: BuildTopInfo;
 }
 

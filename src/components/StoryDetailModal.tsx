@@ -10,19 +10,21 @@ interface StoryDetailModalProps {
 export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({ story, onClose }) => {
   if (!story) return null;
 
+  // Format timestamp according to Rule.md Section 2.1: {Thứ}, {Ngày}/{Tháng}/{Năm}, {Giờ}:{Phút} ({Timezone})
   const formatTimestamp = (ts?: string) => {
     if (!ts) return '-';
     try {
       const num = parseInt(ts, 10);
       if (isNaN(num)) return ts;
       const d = new Date(num * 1000);
-      return d.toLocaleString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
+      const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+      const dayName = dayNames[d.getDay()];
+      const day = d.getDate();
+      const month = d.getMonth() + 1;
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${dayName}, ${day}/${month}/${year}, ${hours}:${minutes} (GMT+7)`;
     } catch {
       return ts;
     }
@@ -50,7 +52,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({ story, onClo
                 </span>
               )}
             </div>
-            <h3 className="font-bold text-slate-900 text-base leading-snug">
+            <h3 className="font-serif font-bold text-slate-900 text-base leading-snug">
               {story.title}
             </h3>
           </div>
@@ -141,11 +143,14 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({ story, onClo
             )}
           </div>
 
-          {/* Editorial / BBT Comment */}
-          {story.comment && (
+          {/* Editorial / BBT Comment (nhan_xet / comment) */}
+          {(story.nhan_xet || story.comment) && (
             <div className="p-3 bg-amber-50/50 border border-amber-200 rounded-lg">
-              <span className="font-semibold text-amber-900 block mb-1">Chỉ đạo & Ghi chú BBT:</span>
-              <p className="text-slate-800 leading-relaxed">{story.comment}</p>
+              <span className="font-semibold text-amber-900 block mb-1">Nhận xét & Chỉ đạo BBT:</span>
+              <div
+                className="text-slate-800 leading-relaxed text-xs [&_a]:text-blue-600 [&_a]:underline"
+                dangerouslySetInnerHTML={{ __html: story.nhan_xet || story.comment || '' }}
+              />
             </div>
           )}
 

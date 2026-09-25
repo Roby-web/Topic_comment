@@ -1,4 +1,4 @@
-import { SiteTrafficRow, EngagementGroup, StoryItem } from '../types';
+import { SiteTrafficRow, EngagementGroup, StoryItem, EditorialComment } from '../types';
 import {
   MOCK_TRAFFIC_DATA_23_09,
   MOCK_ENGAGEMENT_GROUPS_23_09,
@@ -23,6 +23,7 @@ export interface ApiFetchResult {
   activeFromDate: string;
   activeToDate: string;
   storyDate: string; // The effective date queried for the Important Stories box
+  defaultComment?: EditorialComment;
   calledUrls: {
     storyUrl: string;
     analyticsUrl: string;
@@ -36,7 +37,17 @@ const STORAGE_KEY_CONFIG = 'vne_api_config_v3';
 export const DEFAULT_APP_ID = '1000000';
 export const DEFAULT_APP_SIG = '77d72bcf6b5a3673663b684f6cf48310';
 
+export const getYesterdayYmd = (): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export function getSavedApiConfig(): ApiConfig {
+  const defaultYesterday = getYesterdayYmd();
   const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
   if (saved) {
     try {
@@ -45,9 +56,9 @@ export function getSavedApiConfig(): ApiConfig {
         appId: parsed.appId || DEFAULT_APP_ID,
         appSig: parsed.appSig || DEFAULT_APP_SIG,
         useLiveApi: parsed.useLiveApi !== undefined ? parsed.useLiveApi : true,
-        selectedDate: parsed.selectedDate || '2026-09-24',
-        fromDate: parsed.fromDate || parsed.selectedDate || '2026-09-24',
-        toDate: parsed.toDate || parsed.selectedDate || '2026-09-24',
+        selectedDate: parsed.selectedDate || defaultYesterday,
+        fromDate: parsed.fromDate || parsed.selectedDate || defaultYesterday,
+        toDate: parsed.toDate || parsed.selectedDate || defaultYesterday,
       };
     } catch {
       // fallback
@@ -57,9 +68,9 @@ export function getSavedApiConfig(): ApiConfig {
     appId: DEFAULT_APP_ID,
     appSig: DEFAULT_APP_SIG,
     useLiveApi: true, // Default to true so API is actually called with fromdate-todate
-    selectedDate: '2026-09-24',
-    fromDate: '2026-09-24',
-    toDate: '2026-09-24',
+    selectedDate: defaultYesterday,
+    fromDate: defaultYesterday,
+    toDate: defaultYesterday,
   };
 }
 
@@ -105,14 +116,14 @@ export function getPreviousDateString(ymd: string): string {
   return ymd;
 }
 
-// Format number into Vietnamese style with K, M or decimal commas
+// Format number into Vietnamese style with K, M or decimal commas according to Rule.md
 export function formatMetricNumber(num: number): string {
   if (num >= 1_000_000) {
-    const val = (num / 1_000_000).toFixed(2).replace('.', ',');
+    const val = (num / 1_000_000).toFixed(1).replace('.', ',');
     return `${val}M`;
   }
   if (num >= 1_000) {
-    const val = (num / 1_000).toFixed(2).replace('.', ',');
+    const val = (num / 1_000).toFixed(1).replace('.', ',');
     return `${val}K`;
   }
   return num.toLocaleString('vi-VN');
@@ -121,7 +132,7 @@ export function formatMetricNumber(num: number): string {
 export function formatSignedPercent(val: number | null): string {
   if (val === null || val === undefined) return '-';
   const sign = val > 0 ? '+' : '';
-  return `${sign}${val.toFixed(2).replace('.', ',')}%`;
+  return `${sign}${val.toFixed(1).replace('.', ',')}%`;
 }
 
 // Helper to construct exact API URLs with fromdate and todate
@@ -134,22 +145,17 @@ export function buildApiUrls(config: {
   storyToDate?: string;
 }) {
   const { appId, appSig, fromDate, toDate } = config;
-  const isSingleDay = fromDate === toDate;
 
-  // Requirement: "Khi chọn 1 ngày, thì riêng box 'Đề tài quan trọng' phải lấy dữ liệu của ngày trước đó.
-  // Ví dụ: Khi chọn Hôm nay - thứ 6, ngày 25/9. Thì box Đề tài quan trọng lấy dữ liệu của ngày thứ 5, 24/9.
-  // Còn các box bên trái vẫn lấy dữ liệu đúng của ngày 25/9."
-  const effectiveStoryFrom = config.storyFromDate || (isSingleDay ? getPreviousDateString(fromDate) : fromDate);
-  const effectiveStoryTo = config.storyToDate || (isSingleDay ? getPreviousDateString(toDate) : toDate);
+  // Synchronized: Khi chọn 1 ngày thì toàn bộ các box (kể cả Đề tài quan trọng) đều lấy theo ngày đó
+  const effectiveStoryFrom = config.storyFromDate || fromDate;
+  const effectiveStoryTo = config.storyToDate || toDate;
 
   const dateTs = toTimestampGmt7(fromDate);
-  const sigParam = appSig ? `&app_sig=${encodeURIComponent(appSig)}` : '';
-
-  // API 1: getListStoryImportant (Matching requested link format:
-  // https://editor.vnexpress.net/api/subject.php?method=getListStoryImportant&module=subjectcontent&site_id=1000000&app_id=1000000&app_sig=77d72bcf6b5a3673663b684f6cf48310&fromdate=2026-09-22&todate=2026-09-22&important=1)
   const currentAppId = appId || DEFAULT_APP_ID;
   const currentAppSig = appSig || DEFAULT_APP_SIG;
+  const sigParam = `&app_sig=${encodeURIComponent(currentAppSig)}`;
 
+  // API 1: getListStoryImportant (Đồng bộ theo ngày đang chọn)
   const storyUrlDirect = `https://editor.vnexpress.net/api/subject.php?method=getListStoryImportant&module=subjectcontent&site_id=1000000&app_id=${encodeURIComponent(
     currentAppId
   )}&app_sig=${encodeURIComponent(currentAppSig)}&fromdate=${encodeURIComponent(
@@ -164,13 +170,13 @@ export function buildApiUrls(config: {
 
   // API 2: getAnalyticsNhanXet (Traffic các site - lấy theo đúng ngày đã chọn)
   const analyticsUrlDirect = `https://editor.vnexpress.net/api/subject.php?module=subjectcontent&method=getAnalyticsNhanXet&site_id=1000000&app_id=${encodeURIComponent(
-    appId
+    currentAppId
   )}${sigParam}&fromdate=${encodeURIComponent(fromDate)}&todate=${encodeURIComponent(
     toDate
   )}&date=${dateTs}`;
 
   const analyticsUrlProxy = `/api/vne-editor/api/subject.php?module=subjectcontent&method=getAnalyticsNhanXet&site_id=1000000&app_id=${encodeURIComponent(
-    appId
+    currentAppId
   )}${sigParam}&fromdate=${encodeURIComponent(fromDate)}&todate=${encodeURIComponent(
     toDate
   )}&date=${dateTs}`;
@@ -247,11 +253,10 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
   // Base date-specific data generated for this specific date range
   const dateSpecificDataset = generateDataForDateRange(fromDate, toDate);
 
-  // If single date, fallback dataset for stories should also match the previous date (yesterday's important stories)
-  const isSingleDay = fromDate === toDate;
-  const effectiveStoryFrom = isSingleDay ? getPreviousDateString(fromDate) : fromDate;
-  const effectiveStoryTo = isSingleDay ? getPreviousDateString(toDate) : toDate;
-  const storyDataset = isSingleDay ? generateDataForDateRange(effectiveStoryFrom, effectiveStoryTo) : dateSpecificDataset;
+  // Synchronized date: Tất cả các box (Traffic, Nhóm bài, Đề tài quan trọng, Nhận xét) đều lấy theo đúng ngày đã chọn
+  const effectiveStoryFrom = urls.effectiveStoryFrom;
+  const effectiveStoryTo = urls.effectiveStoryTo;
+  const storyDataset = dateSpecificDataset;
 
   if (!config.useLiveApi) {
     return {
@@ -262,6 +267,7 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
       activeFromDate: fromDate,
       activeToDate: toDate,
       storyDate: effectiveStoryFrom,
+      defaultComment: dateSpecificDataset.comment,
       calledUrls,
     };
   }
@@ -278,13 +284,135 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
       (s) => String(s.important) === '1'
     );
     let storySuccess = false;
+    let extractedApiComment: EditorialComment | undefined = undefined;
 
     if (storyRes.status === 'fulfilled' && storyRes.value) {
+      const apiBody = storyRes.value?.body || storyRes.value?.data || storyRes.value;
       const rawStories =
         storyRes.value?.body?.storires ||
         storyRes.value?.body?.stories ||
         storyRes.value?.data?.stories ||
-        storyRes.value?.data;
+        storyRes.value?.data ||
+        apiBody?.stories;
+
+      // Extract "nhanxet" or "nhan_xet" from the API response
+      // "Lấy đúng dữ liệu từ tham số nhanxet theo tham số thời gian fromdate & todate tương ứng"
+      const rawNhanXet =
+        apiBody?.nhanxet ||
+        apiBody?.nhan_xet ||
+        storyRes.value?.nhanxet ||
+        storyRes.value?.nhan_xet ||
+        storyRes.value?.body?.nhanxet ||
+        storyRes.value?.body?.nhan_xet ||
+        storyRes.value?.data?.nhanxet ||
+        storyRes.value?.data?.nhan_xet ||
+        (rawStories && !Array.isArray(rawStories) ? (rawStories.nhanxet || rawStories.nhan_xet) : null);
+
+      if (rawNhanXet) {
+        let commentHtml = '';
+        let commentTitle = `Nhận xét Thư ký trực ngày ${fromDate}`;
+        let author = 'thuytrang';
+        let updatedAt = '07:49';
+
+        // Helper to strip JSON fragments like {"subject_id":"...", "comments":" ... "}
+        const cleanRawEditorialText = (input: string): string => {
+          let str = input.trim();
+
+          // 1. Try parsing full JSON if the entire string is valid JSON object
+          if (str.startsWith('{') && str.endsWith('}')) {
+            try {
+              const parsed = JSON.parse(str);
+              if (parsed.comments !== undefined) return String(parsed.comments);
+              if (parsed.nhanxet !== undefined) return String(parsed.nhanxet);
+              if (parsed.content !== undefined) return String(parsed.content);
+            } catch {}
+          }
+
+          // 2. Remove JSON prefix such as: {"subject_id":"...", ..., "comments":"
+          str = str.replace(/^{\s*"subject_id"[\s\S]*?"comments"\s*:\s*"/i, '');
+          str = str.replace(/^{\s*"subject_id"[\s\S]*?"nhanxet"\s*:\s*"/i, '');
+          // Remove any single-line JSON header if present at top
+          str = str.replace(/^{"subject_id"[^}\n]*"comments":"/i, '');
+
+          // 3. Remove JSON suffix such as: ","status":"1", ... "user_need":"0"}
+          str = str.replace(/"\s*,\s*"status"[\s\S]*$/i, '');
+          str = str.replace(/"\s*,\s*"author_id"[\s\S]*$/i, '');
+          str = str.replace(/"\s*}\s*$/i, '');
+
+          // 4. Handle escaped newlines, quotes or tabs
+          str = str.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\t/g, ' ').replace(/\\"/g, '"');
+
+          return str.trim();
+        };
+
+        if (typeof rawNhanXet === 'string') {
+          const cleanedText = cleanRawEditorialText(rawNhanXet);
+
+          // If cleaned content already has rich HTML tags
+          if (cleanedText.includes('<p') || cleanedText.includes('<ul') || cleanedText.includes('<li') || cleanedText.includes('<br')) {
+            commentHtml = cleanedText;
+          } else {
+            // Convert newline-separated text into structured paragraphs
+            const paragraphs = cleanedText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+            commentHtml = paragraphs
+              .map((line) => {
+                if (line.startsWith('-') || line.startsWith('•')) {
+                  return `<p class="leading-relaxed pl-1">${line}</p>`;
+                }
+                if (line.toLowerCase().startsWith('tổng quan:') || line.toLowerCase().startsWith('có ') || line.toLowerCase().startsWith('lưu ý')) {
+                  return `<p class="font-medium text-slate-900 mt-2 mb-1.5 leading-relaxed">${line}</p>`;
+                }
+                return `<p class="text-slate-800 leading-relaxed mb-1">${line}</p>`;
+              })
+              .join('');
+          }
+        } else if (typeof rawNhanXet === 'object') {
+          // If object or array
+          if (Array.isArray(rawNhanXet)) {
+            commentHtml = rawNhanXet
+              .map((item: any) => {
+                const text = typeof item === 'string' ? cleanRawEditorialText(item) : cleanRawEditorialText(item.comments || item.content || item.comment || item.nhanxet || JSON.stringify(item));
+                return `<p class="leading-relaxed">${text}</p>`;
+              })
+              .join('');
+          } else {
+            const rawInner = rawNhanXet.comments !== undefined ? rawNhanXet.comments : (rawNhanXet.nhanxet !== undefined ? rawNhanXet.nhanxet : (rawNhanXet.content || rawNhanXet.html || rawNhanXet.text || rawNhanXet.comment));
+            const cleanedInner = typeof rawInner === 'string' ? cleanRawEditorialText(rawInner) : cleanRawEditorialText(JSON.stringify(rawNhanXet));
+
+            if (cleanedInner.includes('<p') || cleanedInner.includes('<ul') || cleanedInner.includes('<li')) {
+              commentHtml = cleanedInner;
+            } else {
+              commentHtml = cleanedInner
+                .split(/\r?\n/)
+                .map((l) => l.trim())
+                .filter(Boolean)
+                .map((line) => {
+                  if (line.startsWith('-') || line.startsWith('•')) {
+                    return `<p class="leading-relaxed pl-1">${line}</p>`;
+                  }
+                  return `<p class="font-medium text-slate-900 mb-1 leading-relaxed">${line}</p>`;
+                })
+                .join('');
+            }
+
+            if (rawNhanXet.title) commentTitle = rawNhanXet.title;
+            if (rawNhanXet.author) author = rawNhanXet.author;
+            if (rawNhanXet.updated_at || rawNhanXet.time) updatedAt = rawNhanXet.updated_at || rawNhanXet.time;
+          }
+        }
+
+        if (commentHtml.trim()) {
+          extractedApiComment = {
+            id: `cm-api-${fromDate}`,
+            author,
+            role: 'Thư ký trực BBT',
+            dateStr: fromDate,
+            updatedAt,
+            summaryTitle: commentTitle,
+            htmlContent: commentHtml,
+          };
+        }
+      }
 
       if (Array.isArray(rawStories) && rawStories.length > 0) {
         // Filter strictly for important=1 as specified:
@@ -302,6 +430,8 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
             : (item.time_publishing ? 'Published' : 'None'),
           user_name: item.user_name || item.author || 'phongvien',
           is_qua_han: String(item.is_qua_han || '0'),
+          nhan_xet: item.nhan_xet || item.comment || '',
+          comment: item.nhan_xet || item.comment || '',
         }));
         storySuccess = true;
       }
@@ -493,6 +623,7 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
       activeFromDate: fromDate,
       activeToDate: toDate,
       storyDate: urls.effectiveStoryFrom,
+      defaultComment: extractedApiComment || dateSpecificDataset.comment,
       calledUrls,
     };
   } catch (err: any) {
@@ -505,6 +636,7 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
       activeFromDate: fromDate,
       activeToDate: toDate,
       storyDate: effectiveStoryFrom,
+      defaultComment: dateSpecificDataset.comment,
       calledUrls,
       error: err?.message || 'Không thể kết nối trực tiếp API VnExpress. Đang hiển thị dữ liệu theo ngày.',
     };

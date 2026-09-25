@@ -4,18 +4,16 @@ import {
   RefreshCw,
   ChevronDown,
   Check,
-  User,
 } from 'lucide-react';
 import { SecretaryProfile } from '../types';
-import { SECRETARIES } from '../data/mockData';
 
 interface HeaderProps {
   selectedDate: string;
   fromDate: string;
   toDate: string;
   onDateChange: (newDate: string, newFromDate?: string, newToDate?: string) => void;
-  selectedSecretary: SecretaryProfile;
-  onSecretaryChange: (sec: SecretaryProfile) => void;
+  selectedSecretary?: SecretaryProfile;
+  onSecretaryChange?: (sec: SecretaryProfile) => void;
   onRefresh: () => void;
   isLoading: boolean;
   onOpenConfig: () => void;
@@ -28,15 +26,12 @@ export const Header: React.FC<HeaderProps> = ({
   fromDate,
   toDate,
   onDateChange,
-  selectedSecretary,
-  onSecretaryChange,
   onRefresh,
   isLoading,
   onOpenConfig,
   isLiveApi,
   onExportSummary,
 }) => {
-  const [showSecretaryDropdown, setShowSecretaryDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Compute formatted Vietnamese date string like "Thứ tư, 23/9"
@@ -105,16 +100,16 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-[1720px] mx-auto px-4 sm:px-6 py-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           
-          {/* Left Title: Clean title "Nhận xét đề tài Tòa soạn" without logo or subtitle */}
+          {/* Left Title: "Nhận xét đề tài" */}
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                Nhận xét đề tài Tòa soạn
+                Nhận xét đề tài
               </h1>
             </div>
           </div>
 
-          {/* Right Controls: Date Selector + Secretary + Refresh Button */}
+          {/* Right Controls: Date Selector + Refresh Button */}
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             
             {/* Date Selector Popover */}
@@ -239,51 +234,6 @@ export const Header: React.FC<HeaderProps> = ({
                       )}
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Secretary Selector */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowSecretaryDropdown(!showSecretaryDropdown)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-sm text-slate-700 transition-colors"
-              >
-                <User className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-slate-500 text-xs">Thư ký:</span>
-                <span className="font-semibold text-slate-900">{selectedSecretary.username}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-              </button>
-
-              {showSecretaryDropdown && (
-                <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-1.5 z-50">
-                  <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Chọn Thư ký trực ngày
-                  </div>
-                  {SECRETARIES.map((sec) => (
-                    <button
-                      key={sec.id}
-                      onClick={() => {
-                        onSecretaryChange(sec);
-                        setShowSecretaryDropdown(false);
-                      }}
-                      className="w-full px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-50 text-slate-700 text-left transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-5 h-5 rounded-full ${sec.avatarColor} text-white text-[10px] font-bold flex items-center justify-center`}
-                        >
-                          {sec.username.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-medium text-slate-900">{sec.username}</div>
-                          <div className="text-[11px] text-slate-400">{sec.name}</div>
-                        </div>
-                      </div>
-                      {selectedSecretary.id === sec.id && <Check className="w-4 h-4 text-[#9f224e]" />}
-                    </button>
-                  ))}
                 </div>
               )}
             </div>

@@ -130,30 +130,6 @@ export const EngagementGroupsSection: React.FC<EngagementGroupsSectionProps> = (
           );
         })}
       </div>
-
-      {/* Visual Proportion Bar (Article share vs PV share) */}
-      <div className="bg-white border border-slate-200 rounded-md p-2.5 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1 mb-1.5">
-          <span className="font-semibold text-slate-700">Tương quan Tỉ trọng Bài viết vs Pageviews:</span>
-          <span className="text-[11px] text-slate-400">
-            Hiệu quả cao chiếm {groups[0]?.pageviewSharePct}% PV chỉ với {groups[0]?.articleSharePct}% lượng bài
-          </span>
-        </div>
-
-        <div className="h-2 rounded-full overflow-hidden flex bg-slate-100 w-full">
-          {groups.map((g) => {
-            const style = colorMap[g.color] || colorMap.slate;
-            return (
-              <div
-                key={g.id}
-                style={{ width: `${g.articleSharePct}%` }}
-                className={`${style.barColor} h-full transition-all`}
-                title={`${g.name}: ${g.articleCount} bài (${g.articleSharePct}%)`}
-              />
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 };

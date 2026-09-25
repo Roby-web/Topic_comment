@@ -9,7 +9,8 @@ interface TrafficSectionProps {
 }
 
 export const TrafficSection: React.FC<TrafficSectionProps> = ({ data, lastUpdated }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Requirement: "Box Traffic theo kênh: Mặc định show All sites & VnExpress. Bấm Mở rộng mới show tiếp 3 sites còn lại."
+  const [isExpanded, setIsExpanded] = useState(false);
   const [activeSiteHighlight, setActiveSiteHighlight] = useState<string | null>(null);
 
   // Render a cell metric with current value + Yest + Last Week
@@ -104,8 +105,9 @@ export const TrafficSection: React.FC<TrafficSectionProps> = ({ data, lastUpdate
 
           <tbody className="divide-y divide-slate-100 text-slate-700">
             {data.map((row, idx) => {
-              // Hide rows 1..n if collapsed, keeping only All Sites
-              if (isCollapsed && !row.isTotal) {
+              // Mặc định show All sites & VnExpress. Bấm Mở rộng mới show tiếp 3 sites còn lại.
+              const isMainRow = row.isTotal || row.name.toLowerCase().includes('vnexpress');
+              if (!isExpanded && !isMainRow) {
                 return null;
               }
 
@@ -145,15 +147,15 @@ export const TrafficSection: React.FC<TrafficSectionProps> = ({ data, lastUpdate
         </table>
       </div>
 
-      {/* Collapse / Expand Toggle Button matching image.png */}
+      {/* Collapse / Expand Toggle Button */}
       <div className="bg-white border-t border-slate-100 py-1.5 text-center">
         <button
           type="button"
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={() => setIsExpanded(!isExpanded)}
           className="inline-flex items-center gap-1 text-xs text-[#9f224e] hover:text-[#7e173b] font-medium transition-colors cursor-pointer py-1 px-3 rounded hover:bg-rose-50"
         >
-          <span>{isCollapsed ? 'Mở rộng chi tiết các site' : 'Thu gọn'}</span>
-          {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          <span>{isExpanded ? 'Thu gọn' : 'Mở rộng chi tiết 3 sites'}</span>
+          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
       </div>
     </div>

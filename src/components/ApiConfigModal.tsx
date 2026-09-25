@@ -36,19 +36,19 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({
 
   const apiEndpoints = [
     {
-      name: '1. getListStoryImportant (Danh sách đề tài quan trọng - ngày hôm trước)',
-      desc: `Tham số: fromdate=${urls.effectiveStoryFrom}, todate=${urls.effectiveStoryTo}, important=1 (Lấy ngày hôm trước của ngày đang chọn)`,
+      name: '1. getListStoryImportant (Danh sách đề tài quan trọng theo ngày chọn)',
+      desc: `Tham số: fromdate=${urls.effectiveStoryFrom}, todate=${urls.effectiveStoryTo}, important=1 (Đồng bộ theo ngày đang chọn)`,
       url: urls.storyUrlDirect,
       method: 'GET',
     },
     {
-      name: '2. getAnalyticsNhanXet (Thống kê traffic các site - ngày đang chọn)',
+      name: '2. getAnalyticsNhanXet (Thống kê traffic các site theo ngày chọn)',
       desc: `Users, Pageviews, Articles của ngày ${fromDate}, so sánh hôm qua & tuần trước`,
       url: urls.analyticsUrlDirect,
       method: 'GET',
     },
     {
-      name: '3. get-engage-by-date (Phân loại hiệu quả bài viết - ngày đang chọn)',
+      name: '3. get-engage-by-date (Phân loại hiệu quả bài viết theo ngày chọn)',
       desc: `Hiệu quả cao, Views cao, Tương tác tốt, Cân nhắc của ngày ${fromDate}`,
       url: urls.engageUrlDirect,
       method: 'GET',

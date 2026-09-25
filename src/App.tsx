@@ -18,27 +18,30 @@ import {
   MOCK_ENGAGEMENT_GROUPS_23_09,
   MOCK_STORIES,
   MOCK_EDITORIAL_COMMENTS,
+  MOCK_EDITORIAL_COMMENTS_24_09,
 } from './data/mockData';
 import {
   ApiConfig,
   getSavedApiConfig,
   saveApiConfig,
   fetchEditorialData,
+  getYesterdayYmd,
 } from './services/apiService';
 import { AlertCircle, Check } from 'lucide-react';
 
-const STORAGE_KEY_COMMENTS = 'vne_editorial_comments_v1';
+const STORAGE_KEY_COMMENTS_PREFIX = 'vne_editorial_comments_by_date_v2';
 
 export default function App() {
   const [apiConfig, setApiConfig] = useState<ApiConfig>(getSavedApiConfig);
+  const defaultYesterday = getYesterdayYmd();
   const [selectedDate, setSelectedDate] = useState<string>(
-    () => apiConfig.selectedDate || '2026-09-23'
+    () => apiConfig.selectedDate || defaultYesterday
   );
   const [fromDate, setFromDate] = useState<string>(
-    () => apiConfig.fromDate || apiConfig.selectedDate || '2026-09-23'
+    () => apiConfig.fromDate || apiConfig.selectedDate || defaultYesterday
   );
   const [toDate, setToDate] = useState<string>(
-    () => apiConfig.toDate || apiConfig.selectedDate || '2026-09-23'
+    () => apiConfig.toDate || apiConfig.selectedDate || defaultYesterday
   );
 
   const [selectedSecretary, setSelectedSecretary] = useState<SecretaryProfile>(SECRETARIES[0]);
@@ -48,21 +51,32 @@ export default function App() {
   const [trafficData, setTrafficData] = useState<SiteTrafficRow[]>(MOCK_TRAFFIC_DATA_23_09);
   const [engagementGroups, setEngagementGroups] = useState<EngagementGroup[]>(MOCK_ENGAGEMENT_GROUPS_23_09);
   const [stories, setStories] = useState<StoryItem[]>(MOCK_STORIES);
-  const [comments, setComments] = useState<EditorialComment[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_COMMENTS);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // fallback
+  
+  // Comments loaded by date:
+  // If user has explicitly customized comments for this date, load customized version.
+  // Otherwise, load the exact date comment from API (or date-specific dataset).
+  const loadCommentsForDate = (dateKey: string, fallbackComment?: EditorialComment): EditorialComment[] => {
+    try {
+      const savedUserCustomized = localStorage.getItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${dateKey}`);
+      if (savedUserCustomized) {
+        const parsed = JSON.parse(savedUserCustomized);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    }
-    return MOCK_EDITORIAL_COMMENTS;
-  });
+    } catch {}
+
+    if (fallbackComment) return [fallbackComment];
+    if (dateKey === '2026-09-24') return MOCK_EDITORIAL_COMMENTS_24_09;
+    if (dateKey === '2026-09-23') return MOCK_EDITORIAL_COMMENTS;
+    return [];
+  };
+
+  const [comments, setComments] = useState<EditorialComment[]>(() =>
+    loadCommentsForDate(selectedDate)
+  );
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLiveApi, setIsLiveApi] = useState(false);
-  const [storyDate, setStoryDate] = useState<string>(() => apiConfig.selectedDate || '2026-09-22');
+  const [storyDate, setStoryDate] = useState<string>(() => apiConfig.selectedDate || '2026-09-24');
   const [calledUrls, setCalledUrls] = useState<{
     storyUrl?: string;
     analyticsUrl?: string;
@@ -77,14 +91,10 @@ export default function App() {
     }, 3000);
   };
 
-  // Save comments to localStorage when changed
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_COMMENTS, JSON.stringify(comments));
-  }, [comments]);
-
   // Load data function with exact fromdate and todate passed to API
   const loadData = useCallback(async (cfg: ApiConfig) => {
     setIsLoading(true);
+    const curFromDate = cfg.fromDate || cfg.selectedDate || '2026-09-24';
     try {
       const res = await fetchEditorialData(cfg);
       setTrafficData(res.trafficData);
@@ -93,6 +103,11 @@ export default function App() {
       setIsLiveApi(res.isLive);
       setStoryDate(res.storyDate || res.activeFromDate);
       setCalledUrls(res.calledUrls);
+
+      // Synchronize comments for this date
+      const dateComments = loadCommentsForDate(curFromDate, res.defaultComment);
+      setComments(dateComments);
+
       if (res.error) {
         console.info(res.error);
       }
@@ -145,12 +160,12 @@ export default function App() {
     showToast('Đã lưu cấu hình API');
   };
 
-  // Comment Handlers
+  // Comment Handlers: explicitly save changes to user customized storage
   const handleUpdateComment = (id: string, updated: { title: string; html: string }) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    setComments((prev) =>
-      prev.map((c) =>
+    setComments((prev) => {
+      const next = prev.map((c) =>
         c.id === id
           ? {
               ...c,
@@ -160,13 +175,19 @@ export default function App() {
               author: selectedSecretary.username,
             }
           : c
-      )
-    );
+      );
+      localStorage.setItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${fromDate}`, JSON.stringify(next));
+      return next;
+    });
     showToast('Đã lưu nội dung nhận xét!');
   };
 
   const handleDeleteComment = (id: string) => {
-    setComments((prev) => prev.filter((c) => c.id !== id));
+    setComments((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      localStorage.setItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${fromDate}`, JSON.stringify(next));
+      return next;
+    });
     showToast('Đã xóa khối nhận xét!');
   };
 
@@ -177,12 +198,16 @@ export default function App() {
       id: `cm-${Date.now()}`,
       author: selectedSecretary.username,
       role: 'Thư ký trực BBT',
-      dateStr: selectedDate,
+      dateStr: fromDate,
       updatedAt: timeStr,
       summaryTitle: content.title,
       htmlContent: content.html,
     };
-    setComments((prev) => [newComment, ...prev]);
+    setComments((prev) => {
+      const next = [newComment, ...prev];
+      localStorage.setItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${fromDate}`, JSON.stringify(next));
+      return next;
+    });
     showToast('Đã thêm nhận xét mới của Thư ký trực!');
   };
 

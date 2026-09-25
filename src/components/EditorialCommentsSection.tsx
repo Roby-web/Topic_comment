@@ -11,6 +11,23 @@ interface EditorialCommentsSectionProps {
   onAddComment: (comment: { title: string; html: string }) => void;
 }
 
+// Helper to filter out raw JSON lines e.g. {"subject_id":...} or ","status":"1"...
+function cleanRenderedHtml(html: string): string {
+  if (!html) return '';
+  let cleaned = html;
+  // If string contains raw JSON fragments printed into HTML
+  cleaned = cleaned.replace(/\{"subject_id"[^}]*"comments":\s*"?/gi, '');
+  cleaned = cleaned.replace(/&quot;subject_id&quot;[^}]*&quot;comments&quot;:\s*&quot;?/gi, '');
+  cleaned = cleaned.replace(/&quot;\s*,\s*&quot;status&quot;[\s\S]*$/gi, '');
+  cleaned = cleaned.replace(/"\s*,\s*"status"[\s\S]*$/gi, '');
+  cleaned = cleaned.replace(/\{&quot;subject_id&quot;[\s\S]*?&quot;comments&quot;:\s*&quot;/gi, '');
+  cleaned = cleaned.replace(/<p>\s*\{&quot;subject_id&quot;[\s\S]*?<\/p>/gi, '');
+  cleaned = cleaned.replace(/<p>\s*\{"subject_id"[\s\S]*?<\/p>/gi, '');
+  cleaned = cleaned.replace(/<p>[\s\S]*?"status":"1"[\s\S]*?<\/p>/gi, '');
+  cleaned = cleaned.replace(/<p>[\s\S]*?&quot;status&quot;:&quot;1&quot;[\s\S]*?<\/p>/gi, '');
+  return cleaned;
+}
+
 export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> = ({
   comments,
   selectedSecretary,
@@ -37,7 +54,20 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
       {/* List of Comments */}
-      {comments.map((comment) => {
+      {comments.length === 0 && !isAddingNew ? (
+        <div className="py-6 text-center text-slate-500 text-xs">
+          <p className="italic">Chưa có nhận xét cho ngày này.</p>
+          <button
+            type="button"
+            onClick={() => setIsAddingNew(true)}
+            className="mt-2 inline-flex items-center gap-1 text-[#9f224e] font-semibold hover:underline cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Thêm nhận xét đầu tiên</span>
+          </button>
+        </div>
+      ) : (
+        comments.map((comment) => {
         const isEditing = editingCommentId === comment.id;
 
         if (isEditing) {
@@ -107,7 +137,9 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
             )}
 
             {/* Optional Summary Heading */}
-            {comment.summaryTitle && comment.summaryTitle !== 'Nhận xét Thư ký trực' && (
+            {comment.summaryTitle &&
+              !comment.summaryTitle.startsWith('Nhận xét Thư ký trực') &&
+              !comment.summaryTitle.startsWith('Nhận xét đề tài ngày') && (
               <div className="text-xs font-semibold text-slate-900 mb-2 font-sans pr-14">
                 {comment.summaryTitle}
               </div>
@@ -116,11 +148,12 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
             {/* Rendered HTML content - Exact typographic layout from image.png */}
             <div
               className="text-xs text-slate-800 leading-relaxed space-y-2 pr-14 [&_a]:text-blue-600 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_strong]:font-semibold"
-              dangerouslySetInnerHTML={{ __html: comment.htmlContent }}
+              dangerouslySetInnerHTML={{ __html: cleanRenderedHtml(comment.htmlContent) }}
             />
           </div>
         );
-      })}
+      })
+      )}
 
       {/* Adding New Comment form */}
       {isAddingNew && (
@@ -137,16 +170,31 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
 
       {/* Bottom Footer Action & Timestamp Row matching image.png */}
       <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
-        {/* + Thêm nhận xét button */}
-        {!isAddingNew && (
-          <button
-            type="button"
-            onClick={() => setIsAddingNew(true)}
-            className="inline-flex items-center gap-1 text-slate-600 hover:text-[#9f224e] font-medium transition-colors cursor-pointer py-1 px-1 rounded"
-          >
-            <Plus className="w-3.5 h-3.5 text-slate-500" />
-            <span>+ Thêm nhận xét</span>
-          </button>
+        {/* Buttons: Thêm nhận xét & Nhận xét hôm nay */}
+        {!isAddingNew ? (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsAddingNew(true)}
+              className="inline-flex items-center gap-1.5 text-slate-600 hover:text-[#9f224e] font-medium transition-colors cursor-pointer py-1 px-1 rounded"
+              title="Thêm nhận xét mới cho ngày này"
+            >
+              <Plus className="w-3.5 h-3.5 text-slate-500" />
+              <span>Thêm nhận xét</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsAddingNew(true)}
+              className="inline-flex items-center gap-1.5 text-[#9f224e] hover:text-[#7e173b] bg-rose-50/70 hover:bg-rose-100/70 border border-rose-200/80 font-medium transition-colors cursor-pointer py-1 px-2.5 rounded text-xs"
+              title="Nhập nhận xét hôm nay"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-[#9f224e]" />
+              <span>Nhận xét hôm nay</span>
+            </button>
+          </div>
+        ) : (
+          <div />
         )}
 
         {/* Thư ký trực cập nhật lần cuối timestamp */}
