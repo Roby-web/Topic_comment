@@ -12,6 +12,20 @@ export default defineConfig(() => {
       },
     },
     server: {
+      proxy: {
+        '/api/vne-editor': {
+          target: 'https://editor.vnexpress.net',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/vne-editor/, ''),
+        },
+        '/api/vne-realtime': {
+          target: 'https://api-realtime.vnexpress.net',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/vne-realtime/, ''),
+        },
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

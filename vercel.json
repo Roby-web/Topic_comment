@@ -2,6 +2,14 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/vne-editor/:path*",
+      "destination": "https://editor.vnexpress.net/:path*"
+    },
+    {
+      "source": "/api/vne-realtime/:path*",
+      "destination": "https://api-realtime.vnexpress.net/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

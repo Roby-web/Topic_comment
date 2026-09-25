@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { Calendar, RefreshCw, Settings, ChevronDown, Check, User, Share2, Sparkles } from 'lucide-react';
+import {
+  Calendar,
+  RefreshCw,
+  ChevronDown,
+  Check,
+  User,
+} from 'lucide-react';
 import { SecretaryProfile } from '../types';
 import { SECRETARIES } from '../data/mockData';
 
 interface HeaderProps {
   selectedDate: string;
-  onDateChange: (date: string) => void;
+  fromDate: string;
+  toDate: string;
+  onDateChange: (newDate: string, newFromDate?: string, newToDate?: string) => void;
   selectedSecretary: SecretaryProfile;
   onSecretaryChange: (sec: SecretaryProfile) => void;
   onRefresh: () => void;
@@ -17,6 +25,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   selectedDate,
+  fromDate,
+  toDate,
   onDateChange,
   selectedSecretary,
   onSecretaryChange,
@@ -39,113 +49,195 @@ export const Header: React.FC<HeaderProps> = ({
         const dayOfWeek = dayOfWeekNames[d.getDay()];
         return {
           title: `${dayOfWeek}, ${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`,
+          short: `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`,
           year: parts[0],
         };
       }
     } catch {
       // fallback
     }
-    return { title: 'Thứ tư, 23/9', year: '2026' };
+    return { title: 'Thứ tư, 23/9', short: '23/9', year: '2026' };
   };
 
-  const dateInfo = getFormattedDateDisplay(selectedDate);
+  const isRange = fromDate !== toDate;
+  const fromInfo = getFormattedDateDisplay(fromDate);
+  const toInfo = getFormattedDateDisplay(toDate);
 
-  const quickDates = [
-    { label: 'Hôm nay (23/9)', value: '2026-09-23' },
-    { label: 'Hôm qua (22/9)', value: '2026-09-22' },
-    { label: '21/9 (Tuần trước)', value: '2026-09-21' },
-  ];
+  const displayLabel = isRange
+    ? `${fromInfo.short} - ${toInfo.short}/${fromInfo.year}`
+    : `${fromInfo.title}`;
+
+  // Helper to format date string to YYYY-MM-DD
+  const formatDateToYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  // Today and Yesterday dates dynamically calculated from real local date or 2026-09-25 reference
+  const todayDateObj = new Date();
+  const yesterdayDateObj = new Date();
+  yesterdayDateObj.setDate(todayDateObj.getDate() - 1);
+
+  const todayYMD = formatDateToYMD(todayDateObj);
+  const yesterdayYMD = formatDateToYMD(yesterdayDateObj);
+
+  const todayInfo = getFormattedDateDisplay(todayYMD);
+  const yesterdayInfo = getFormattedDateDisplay(yesterdayYMD);
+
+  const isToday = fromDate === todayYMD;
+  const isYesterday = fromDate === yesterdayYMD;
+  const isOtherDay = !isToday && !isYesterday;
+
+  const [showOtherDayInput, setShowOtherDayInput] = useState(false);
+  const [otherDayVal, setOtherDayVal] = useState(fromDate);
+  const dateInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleSelectSingleDate = (ymd: string) => {
+    onDateChange(ymd, ymd, ymd);
+    setShowDatePicker(false);
+    setShowOtherDayInput(false);
+  };
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
       <div className="max-w-[1720px] mx-auto px-4 sm:px-6 py-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           
-          {/* Left Brand & Title */}
+          {/* Left Title: Clean title "Nhận xét đề tài Tòa soạn" without logo or subtitle */}
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2.5">
-              <span className="w-8 h-8 rounded-md bg-[#9f224e] text-white flex items-center justify-center font-bold text-sm tracking-wider font-serif shadow-xs">
-                VnE
-              </span>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                  <span>Nhận xét đề tài Tòa soạn</span>
-                  <span className="hidden sm:inline-block text-xs font-medium px-2 py-0.5 bg-rose-50 text-[#9f224e] border border-rose-200 rounded-sm">
-                    Bản tin ngày
-                  </span>
-                </h1>
-                <p className="text-xs text-slate-500 font-sans">
-                  Hệ thống điều hành sản xuất & đánh giá chất lượng xuất bản VnExpress
-                </p>
-              </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                Nhận xét đề tài Tòa soạn
+              </h1>
             </div>
-
-            {/* Live / Demo Mode Badge */}
-            <button
-              onClick={onOpenConfig}
-              className="hidden lg:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-slate-200 hover:bg-slate-50 transition-colors text-slate-600"
-              title="Nhấn để cấu hình kết nối API"
-            >
-              <span className={`w-2 h-2 rounded-full ${isLiveApi ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
-              <span className="font-medium">{isLiveApi ? 'Live API VnE' : 'Dữ liệu chuẩn VnE'}</span>
-              <Settings className="w-3.5 h-3.5 text-slate-400" />
-            </button>
           </div>
 
-          {/* Right Controls: Date Selector + Secretary + Action Buttons */}
+          {/* Right Controls: Date Selector + Secretary + Refresh Button */}
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             
-            {/* Date Selector */}
+            {/* Date Selector Popover */}
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setShowDatePicker(!showDatePicker)}
+                onClick={() => {
+                  setOtherDayVal(fromDate);
+                  setShowDatePicker(!showDatePicker);
+                  setShowOtherDayInput(false);
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-sm font-medium text-slate-700 transition-colors"
+                title="Chọn ngày nhận xét"
               >
                 <Calendar className="w-4 h-4 text-[#9f224e]" />
-                <span className="text-[#9f224e] font-serif font-bold">{dateInfo.title}</span>
-                <span className="text-xs text-slate-400">/{dateInfo.year}</span>
+                <span className="text-[#9f224e] font-serif font-bold">{displayLabel}</span>
+                {!isRange && <span className="text-xs text-slate-400">/{fromInfo.year}</span>}
                 <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
               </button>
 
               {showDatePicker && (
-                <div className="absolute right-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
-                    Chọn nhanh ngày báo cáo
-                  </div>
-                  <div className="space-y-1 mb-3">
-                    {quickDates.map((item) => (
+                <div className="absolute right-0 mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="space-y-1">
+                    {/* Option 1: Hôm nay - ngày tương ứng */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSingleDate(todayYMD)}
+                      className={`w-full text-left px-3 py-2 rounded text-xs flex items-center justify-between transition-colors ${
+                        isToday
+                          ? 'bg-rose-50 text-[#9f224e] font-semibold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">Hôm nay</span>
+                        <span className="text-slate-500 font-normal">({todayInfo.title})</span>
+                      </div>
+                      {isToday && <Check className="w-4 h-4 text-[#9f224e]" />}
+                    </button>
+
+                    {/* Option 2: Hôm qua - ngày tương ứng */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSingleDate(yesterdayYMD)}
+                      className={`w-full text-left px-3 py-2 rounded text-xs flex items-center justify-between transition-colors ${
+                        isYesterday
+                          ? 'bg-rose-50 text-[#9f224e] font-semibold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">Hôm qua</span>
+                        <span className="text-slate-500 font-normal">({yesterdayInfo.title})</span>
+                      </div>
+                      {isYesterday && <Check className="w-4 h-4 text-[#9f224e]" />}
+                    </button>
+
+                    {/* Option 3: Ngày khác - bấm vào xổ ra calendar chọn 1 ngày */}
+                    <div className="pt-1 border-t border-slate-100">
                       <button
-                        key={item.value}
+                        type="button"
                         onClick={() => {
-                          onDateChange(item.value);
-                          setShowDatePicker(false);
+                          setShowOtherDayInput(!showOtherDayInput);
+                          setTimeout(() => {
+                            if (dateInputRef.current) {
+                              try {
+                                dateInputRef.current.showPicker?.();
+                              } catch {
+                                dateInputRef.current.focus();
+                              }
+                            }
+                          }, 50);
                         }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center justify-between transition-colors ${
-                          selectedDate === item.value
+                        className={`w-full text-left px-3 py-2 rounded text-xs flex items-center justify-between transition-colors ${
+                          isOtherDay
                             ? 'bg-rose-50 text-[#9f224e] font-semibold'
                             : 'text-slate-700 hover:bg-slate-50'
                         }`}
                       >
-                        <span>{item.label}</span>
-                        {selectedDate === item.value && <Check className="w-3.5 h-3.5 text-[#9f224e]" />}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium">Ngày khác</span>
+                          {isOtherDay && (
+                            <span className="text-[#9f224e] font-normal">({fromInfo.title})</span>
+                          )}
+                        </div>
+                        <Calendar className="w-4 h-4 text-slate-400" />
                       </button>
-                    ))}
-                  </div>
 
-                  <div className="pt-2 border-t border-slate-100">
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Hoặc chọn ngày tùy ý:</label>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          onDateChange(e.target.value);
-                          setShowDatePicker(false);
-                        }
-                      }}
-                      className="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded text-slate-700 focus:outline-none focus:border-[#9f224e]"
-                    />
+                      {/* Expandable Calendar Picker */}
+                      {showOtherDayInput && (
+                        <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-md space-y-2">
+                          <label className="block text-[11px] font-semibold text-slate-700">
+                            Chọn ngày trên lịch:
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              ref={dateInputRef}
+                              type="date"
+                              value={otherDayVal}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setOtherDayVal(val);
+                                if (val) {
+                                  handleSelectSingleDate(val);
+                                }
+                              }}
+                              className="flex-1 text-xs px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:outline-none focus:border-[#9f224e] cursor-pointer"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (otherDayVal) {
+                                  handleSelectSingleDate(otherDayVal);
+                                }
+                              }}
+                              className="px-2.5 py-1.5 bg-[#9f224e] text-white rounded text-xs font-semibold hover:bg-[#85183e] transition-colors whitespace-nowrap shadow-xs"
+                            >
+                              Chọn
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -159,7 +251,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-sm text-slate-700 transition-colors"
               >
                 <User className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-slate-500 text-xs">Thư ký trực:</span>
+                <span className="text-slate-500 text-xs">Thư ký:</span>
                 <span className="font-semibold text-slate-900">{selectedSecretary.username}</span>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
               </button>
@@ -179,7 +271,9 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-50 text-slate-700 text-left transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded-full ${sec.avatarColor} text-white text-[10px] font-bold flex items-center justify-center`}>
+                        <div
+                          className={`w-5 h-5 rounded-full ${sec.avatarColor} text-white text-[10px] font-bold flex items-center justify-center`}
+                        >
                           {sec.username.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -198,31 +292,10 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onRefresh}
               disabled={isLoading}
-              title="Làm mới dữ liệu từ API"
+              title="Gọi lại 3 API VnExpress với fromdate-todate hiện tại"
               className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#9f224e]' : ''}`} />
-            </button>
-
-            {/* Quick Export / Copy summary */}
-            {onExportSummary && (
-              <button
-                onClick={onExportSummary}
-                className="flex items-center gap-1 px-3 py-1.5 bg-[#9f224e] text-white hover:bg-[#85183e] rounded text-xs font-medium transition-colors shadow-xs"
-                title="Sao chép tóm tắt nhận xét gửi BBT / Telegram"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sao chép tóm tắt</span>
-              </button>
-            )}
-
-            {/* Settings button */}
-            <button
-              onClick={onOpenConfig}
-              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded transition-colors"
-              title="Cài đặt API"
-            >
-              <Settings className="w-4 h-4" />
             </button>
 
           </div>

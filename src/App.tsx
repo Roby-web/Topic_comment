@@ -25,13 +25,22 @@ import {
   saveApiConfig,
   fetchEditorialData,
 } from './services/apiService';
-import { Check, Copy, AlertCircle, Info } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 const STORAGE_KEY_COMMENTS = 'vne_editorial_comments_v1';
 
 export default function App() {
   const [apiConfig, setApiConfig] = useState<ApiConfig>(getSavedApiConfig);
-  const [selectedDate, setSelectedDate] = useState<string>('2026-09-23');
+  const [selectedDate, setSelectedDate] = useState<string>(
+    () => apiConfig.selectedDate || '2026-09-23'
+  );
+  const [fromDate, setFromDate] = useState<string>(
+    () => apiConfig.fromDate || apiConfig.selectedDate || '2026-09-23'
+  );
+  const [toDate, setToDate] = useState<string>(
+    () => apiConfig.toDate || apiConfig.selectedDate || '2026-09-23'
+  );
+
   const [selectedSecretary, setSelectedSecretary] = useState<SecretaryProfile>(SECRETARIES[0]);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
@@ -53,6 +62,12 @@ export default function App() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLiveApi, setIsLiveApi] = useState(false);
+  const [storyDate, setStoryDate] = useState<string>(() => apiConfig.selectedDate || '2026-09-22');
+  const [calledUrls, setCalledUrls] = useState<{
+    storyUrl?: string;
+    analyticsUrl?: string;
+    engageUrl?: string;
+  }>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -67,7 +82,7 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY_COMMENTS, JSON.stringify(comments));
   }, [comments]);
 
-  // Load data function
+  // Load data function with exact fromdate and todate passed to API
   const loadData = useCallback(async (cfg: ApiConfig) => {
     setIsLoading(true);
     try {
@@ -76,6 +91,8 @@ export default function App() {
       setEngagementGroups(res.engagementGroups);
       setStories(res.stories);
       setIsLiveApi(res.isLive);
+      setStoryDate(res.storyDate || res.activeFromDate);
+      setCalledUrls(res.calledUrls);
       if (res.error) {
         console.info(res.error);
       }
@@ -87,15 +104,33 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    loadData({ ...apiConfig, selectedDate });
-  }, [selectedDate, loadData, apiConfig]);
+    loadData({
+      ...apiConfig,
+      selectedDate,
+      fromDate,
+      toDate,
+    });
+  }, [selectedDate, fromDate, toDate, loadData, apiConfig]);
 
-  const handleDateChange = (newDate: string) => {
+  const handleDateChange = (newDate: string, newFromDate?: string, newToDate?: string) => {
+    const fDate = newFromDate || newDate;
+    const tDate = newToDate || newDate;
     setSelectedDate(newDate);
-    const updated = { ...apiConfig, selectedDate: newDate };
+    setFromDate(fDate);
+    setToDate(tDate);
+    const updated = {
+      ...apiConfig,
+      selectedDate: newDate,
+      fromDate: fDate,
+      toDate: tDate,
+    };
     setApiConfig(updated);
     saveApiConfig(updated);
-    showToast(`Đã chuyển sang ngày ${newDate}`);
+    showToast(
+      fDate === tDate
+        ? `Đã chuyển sang ngày ${fDate} (fromdate: ${fDate}, todate: ${tDate})`
+        : `Đã chọn khoảng từ ${fDate} đến ${tDate}`
+    );
   };
 
   const handleSecretaryChange = (sec: SecretaryProfile) => {
@@ -106,8 +141,8 @@ export default function App() {
   const handleSaveConfig = (newConfig: ApiConfig) => {
     setApiConfig(newConfig);
     saveApiConfig(newConfig);
-    loadData({ ...newConfig, selectedDate });
-    showToast(newConfig.useLiveApi ? 'Đã bật chế độ kết nối Live API' : 'Đã lưu cấu hình dữ liệu chuẩn');
+    loadData({ ...newConfig, selectedDate, fromDate, toDate });
+    showToast('Đã lưu cấu hình API');
   };
 
   // Comment Handlers
@@ -154,7 +189,7 @@ export default function App() {
   // Quick export plain text summary for BBT group chat
   const handleExportSummary = () => {
     const textLines = [
-      `=== BẢN TIN NHẬN XÉT ĐỀ TÀI VNEXPRESS (${selectedDate}) ===`,
+      `=== BẢN TIN NHẬN XÉT ĐỀ TÀI VNEXPRESS (${fromDate}${fromDate !== toDate ? ` - ${toDate}` : ''}) ===`,
       `Thư ký trực: ${selectedSecretary.name} (@${selectedSecretary.username})`,
       '',
       `1. TRAFFIC TOÀN TRANG (All Sites):`,
@@ -164,12 +199,13 @@ export default function App() {
       '',
       `2. PHÂN LOẠI HIỆU QUẢ:`,
       ...engagementGroups.map(
-        (g) => `- ${g.name}: ${g.articleCount} bài (${g.articleSharePct}%), ${g.pageviewFormatted} (${g.pageviewSharePct}%)`
+        (g) =>
+          `- ${g.name}: ${g.articleCount} bài (${g.articleSharePct}%), ${g.pageviewFormatted} (${g.pageviewSharePct}%)`
       ),
       '',
-      `3. ĐỀ TÀI QUAN TRỌNG HÔM QUA:`,
-      `- Chưa lên trang: ${stories.filter((s) => s.important === '1' && s.article_status_label !== 'Published').length} đề tài`,
-      `- Đã xuất bản: ${stories.filter((s) => s.important === '1' && s.article_status_label === 'Published').length} đề tài`,
+      `3. ĐỀ TÀI QUAN TRỌNG (${storyDate}):`,
+      `- Chưa lên trang: ${stories.filter((s) => String(s.important) === '1' && s.article_status_label !== 'Published').length} đề tài`,
+      `- Đã xuất bản: ${stories.filter((s) => String(s.important) === '1' && s.article_status_label === 'Published').length} đề tài`,
     ];
 
     navigator.clipboard.writeText(textLines.join('\n'));
@@ -179,11 +215,15 @@ export default function App() {
   // Compute date label for Card Header matching image.png (e.g. "Thứ tư, 23/9")
   const getDateLabel = () => {
     try {
-      const parts = selectedDate.split('-');
+      const parts = fromDate.split('-');
       if (parts.length === 3) {
         const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
         const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
-        return `${dayNames[d.getDay()]}, ${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+        if (fromDate === toDate) {
+          return `${dayNames[d.getDay()]}, ${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+        }
+        const toParts = toDate.split('-');
+        return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)} - ${parseInt(toParts[2], 10)}/${parseInt(toParts[1], 10)}`;
       }
     } catch {
       // fallback
@@ -193,14 +233,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
-      
       {/* Top Application Bar */}
       <Header
         selectedDate={selectedDate}
+        fromDate={fromDate}
+        toDate={toDate}
         onDateChange={handleDateChange}
         selectedSecretary={selectedSecretary}
         onSecretaryChange={handleSecretaryChange}
-        onRefresh={() => loadData({ ...apiConfig, selectedDate })}
+        onRefresh={() => loadData({ ...apiConfig, selectedDate, fromDate, toDate })}
         isLoading={isLoading}
         onOpenConfig={() => setIsConfigModalOpen(true)}
         isLiveApi={isLiveApi}
@@ -209,27 +250,27 @@ export default function App() {
 
       {/* Main Content Viewport */}
       <main className="flex-1 max-w-[1720px] w-full mx-auto p-3 sm:p-5 lg:p-6">
-        
         {/* Two-Column Responsive Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-          
           {/* LEFT COLUMN: Exactly matching the layout, cards & info from image.png (approx 62% width) */}
           <div className="xl:col-span-7 2xl:col-span-8 space-y-4">
-            
             {/* Master Card Enclosure matching image.png */}
             <div className="bg-white rounded-xl border border-slate-300 p-4 sm:p-6 shadow-xs space-y-5">
-              
               {/* Card Header matching image.png: "Thứ tư, 23/9" in red + "Thư ký trực: thuytrang v" */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 className="text-xl sm:text-2xl font-bold font-serif text-[#9f224e] tracking-tight">
-                  {getDateLabel()}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl sm:text-2xl font-bold font-serif text-[#9f224e] tracking-tight">
+                    {getDateLabel()}
+                  </h2>
+                  <span className="text-xs text-slate-400 font-mono">
+                    ({fromDate})
+                  </span>
+                </div>
 
                 <div className="flex items-center gap-1.5 text-xs text-slate-700">
                   <span className="text-slate-500 font-normal">Thư ký trực:</span>
                   <button
                     onClick={() => {
-                      // Cycle to next secretary quickly
                       const idx = SECRETARIES.findIndex((s) => s.id === selectedSecretary.id);
                       const next = SECRETARIES[(idx + 1) % SECRETARIES.length];
                       handleSecretaryChange(next);
@@ -263,21 +304,14 @@ export default function App() {
                   onAddComment={handleAddComment}
                 />
               </div>
-
             </div>
-
           </div>
 
-          {/* RIGHT COLUMN: Newly Added Feature per User Request (approx 38% width) */}
+          {/* RIGHT COLUMN: Important Stories */}
           <div className="xl:col-span-5 2xl:col-span-4 sticky top-20">
-            <ImportantStoriesColumn
-              stories={stories}
-              selectedDate={selectedDate}
-            />
+            <ImportantStoriesColumn stories={stories} selectedDate={fromDate} storyDate={storyDate} />
           </div>
-
         </div>
-
       </main>
 
       {/* Floating Toast Notification */}
@@ -292,10 +326,14 @@ export default function App() {
       <ApiConfigModal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
-        config={apiConfig}
+        config={{
+          ...apiConfig,
+          selectedDate,
+          fromDate,
+          toDate,
+        }}
         onSaveConfig={handleSaveConfig}
       />
-
     </div>
   );
 }

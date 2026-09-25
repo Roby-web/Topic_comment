@@ -20,7 +20,8 @@ import { StoryDetailModal } from './StoryDetailModal';
 
 interface ImportantStoriesColumnProps {
   stories: StoryItem[];
-  selectedDate: string;
+  selectedDate: string; // The main selected date (e.g. 2026-09-25)
+  storyDate?: string;   // The effective date for stories (e.g. 2026-09-24)
 }
 
 type TabType = 'pending' | 'published' | 'all';
@@ -28,6 +29,7 @@ type TabType = 'pending' | 'published' | 'all';
 export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
   stories,
   selectedDate,
+  storyDate,
 }) => {
   // Requirement: "Số lượng đề tài chưa lên trang, chiếm tỉ trọng bao nhiêu: active mặc định vào tab này"
   const [activeTab, setActiveTab] = useState<TabType>('pending');
@@ -35,9 +37,30 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
   const [selectedBan, setSelectedBan] = useState<string>('all');
   const [selectedStoryForModal, setSelectedStoryForModal] = useState<StoryItem | null>(null);
 
-  // Filter only important stories (important === '1')
+  // Compute Vietnamese date string for the title
+  // Requirement: Sửa tiêu đề "Đề tài Quan trọng ngày [ngày trước đó]"
+  // Ví dụ: Khi chọn Hôm nay - thứ 6, ngày 25/9. Thì box Đề tài quan trọng lấy dữ liệu của ngày thứ 5, 24/9.
+  const effectiveDateYmd = storyDate || selectedDate;
+  const getFormattedStoryDate = (ymd: string) => {
+    try {
+      const parts = ymd.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const dayNames = ['Chủ nhật', 'thứ hai', 'thứ ba', 'thứ tư', 'thứ năm', 'thứ sáu', 'thứ bảy'];
+        const dayName = dayNames[d.getDay()];
+        return `${dayName}, ${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+      }
+    } catch {
+      // fallback
+    }
+    return ymd;
+  };
+
+  const storyDateTitle = getFormattedStoryDate(effectiveDateYmd);
+
+  // Filter only important stories (important === '1' or 1 as requested: "Chỉ lấy đề tài tham số important=1")
   const importantStories = useMemo(() => {
-    return stories.filter((s) => s.important === '1');
+    return stories.filter((s) => String(s.important) === '1');
   }, [stories]);
 
   // Total important
@@ -161,11 +184,11 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-4 bg-[#9f224e] rounded-xs" />
             <h2 className="font-bold text-slate-900 text-sm tracking-tight">
-              Đề tài Quan trọng ngày hôm qua
+              Đề tài Quan trọng ngày {storyDateTitle}
             </h2>
           </div>
-          <span className="text-[11px] text-slate-500 font-medium">
-            Tổng cộng: <strong className="text-slate-900">{totalImportant}</strong> đề tài
+          <span className="text-[11px] text-slate-500 font-medium shrink-0">
+            Tổng: <strong className="text-slate-900">{totalImportant}</strong> đề tài
           </span>
         </div>
 
