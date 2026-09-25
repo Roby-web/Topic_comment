@@ -210,16 +210,16 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({
             <div>
               <label className="block font-medium text-slate-700 mb-1 flex items-center justify-between">
                 <span>Chữ ký bảo mật (app_sig):</span>
-                <span className="text-[10px] text-slate-400 font-normal">Tùy chọn</span>
+                <span className="text-[10px] text-slate-400 font-normal">Mặc định: 77d72bcf...</span>
               </label>
               <div className="relative">
                 <Key className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
-                  type="password"
+                  type="text"
                   value={appSig}
                   onChange={(e) => setAppSig(e.target.value)}
-                  placeholder="Nhập nếu tòa soạn yêu cầu app_sig"
-                  className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded text-slate-800 focus:outline-none focus:border-[#9f224e]"
+                  placeholder="77d72bcf6b5a3673663b684f6cf48310"
+                  className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded text-slate-800 focus:outline-none focus:border-[#9f224e] font-mono text-[11px]"
                 />
               </div>
             </div>

@@ -31,7 +31,10 @@ export interface ApiFetchResult {
   error?: string;
 }
 
-const STORAGE_KEY_CONFIG = 'vne_api_config_v2';
+const STORAGE_KEY_CONFIG = 'vne_api_config_v3';
+
+export const DEFAULT_APP_ID = '1000000';
+export const DEFAULT_APP_SIG = '77d72bcf6b5a3673663b684f6cf48310';
 
 export function getSavedApiConfig(): ApiConfig {
   const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
@@ -39,24 +42,24 @@ export function getSavedApiConfig(): ApiConfig {
     try {
       const parsed = JSON.parse(saved);
       return {
-        appId: parsed.appId || '1000000',
-        appSig: parsed.appSig || '',
+        appId: parsed.appId || DEFAULT_APP_ID,
+        appSig: parsed.appSig || DEFAULT_APP_SIG,
         useLiveApi: parsed.useLiveApi !== undefined ? parsed.useLiveApi : true,
-        selectedDate: parsed.selectedDate || '2026-09-23',
-        fromDate: parsed.fromDate || parsed.selectedDate || '2026-09-23',
-        toDate: parsed.toDate || parsed.selectedDate || '2026-09-23',
+        selectedDate: parsed.selectedDate || '2026-09-24',
+        fromDate: parsed.fromDate || parsed.selectedDate || '2026-09-24',
+        toDate: parsed.toDate || parsed.selectedDate || '2026-09-24',
       };
     } catch {
       // fallback
     }
   }
   return {
-    appId: '1000000',
-    appSig: '',
+    appId: DEFAULT_APP_ID,
+    appSig: DEFAULT_APP_SIG,
     useLiveApi: true, // Default to true so API is actually called with fromdate-todate
-    selectedDate: '2026-09-23',
-    fromDate: '2026-09-23',
-    toDate: '2026-09-23',
+    selectedDate: '2026-09-24',
+    fromDate: '2026-09-24',
+    toDate: '2026-09-24',
   };
 }
 
@@ -142,18 +145,22 @@ export function buildApiUrls(config: {
   const dateTs = toTimestampGmt7(fromDate);
   const sigParam = appSig ? `&app_sig=${encodeURIComponent(appSig)}` : '';
 
-  // API 1: getListStoryImportant (Using effectiveStoryFrom & effectiveStoryTo with important=1)
+  // API 1: getListStoryImportant (Matching requested link format:
+  // https://editor.vnexpress.net/api/subject.php?method=getListStoryImportant&module=subjectcontent&site_id=1000000&app_id=1000000&app_sig=77d72bcf6b5a3673663b684f6cf48310&fromdate=2026-09-22&todate=2026-09-22&important=1)
+  const currentAppId = appId || DEFAULT_APP_ID;
+  const currentAppSig = appSig || DEFAULT_APP_SIG;
+
   const storyUrlDirect = `https://editor.vnexpress.net/api/subject.php?method=getListStoryImportant&module=subjectcontent&site_id=1000000&app_id=${encodeURIComponent(
-    appId
-  )}${sigParam}&fromdate=${encodeURIComponent(effectiveStoryFrom)}&todate=${encodeURIComponent(
-    effectiveStoryTo
-  )}&important=1&page=1&limit=100`;
+    currentAppId
+  )}&app_sig=${encodeURIComponent(currentAppSig)}&fromdate=${encodeURIComponent(
+    effectiveStoryFrom
+  )}&todate=${encodeURIComponent(effectiveStoryTo)}&important=1`;
 
   const storyUrlProxy = `/api/vne-editor/api/subject.php?method=getListStoryImportant&module=subjectcontent&site_id=1000000&app_id=${encodeURIComponent(
-    appId
-  )}${sigParam}&fromdate=${encodeURIComponent(effectiveStoryFrom)}&todate=${encodeURIComponent(
-    effectiveStoryTo
-  )}&important=1&page=1&limit=100`;
+    currentAppId
+  )}&app_sig=${encodeURIComponent(currentAppSig)}&fromdate=${encodeURIComponent(
+    effectiveStoryFrom
+  )}&todate=${encodeURIComponent(effectiveStoryTo)}&important=1`;
 
   // API 2: getAnalyticsNhanXet (Traffic các site - lấy theo đúng ngày đã chọn)
   const analyticsUrlDirect = `https://editor.vnexpress.net/api/subject.php?module=subjectcontent&method=getAnalyticsNhanXet&site_id=1000000&app_id=${encodeURIComponent(
