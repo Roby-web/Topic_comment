@@ -297,7 +297,9 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
           important: '1',
           ban_name: item.ban_name || item.department_name || item.ban || 'Thời sự',
           status_label: item.status_label || (item.article_status_label === 'Published' ? 'Hoàn thành' : 'Đang triển khai'),
-          article_status_label: item.article_status_label || (item.time_publishing ? 'Published' : 'Editing'),
+          article_status_label: item.article_status_label !== undefined && item.article_status_label !== null
+            ? String(item.article_status_label)
+            : (item.time_publishing ? 'Published' : 'None'),
           user_name: item.user_name || item.author || 'phongvien',
           is_qua_han: String(item.is_qua_han || '0'),
         }));

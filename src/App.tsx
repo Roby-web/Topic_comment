@@ -25,7 +25,7 @@ import {
   saveApiConfig,
   fetchEditorialData,
 } from './services/apiService';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 
 const STORAGE_KEY_COMMENTS = 'vne_editorial_comments_v1';
 
@@ -204,7 +204,7 @@ export default function App() {
       ),
       '',
       `3. ĐỀ TÀI QUAN TRỌNG (${storyDate}):`,
-      `- Chưa lên trang: ${stories.filter((s) => String(s.important) === '1' && s.article_status_label !== 'Published').length} đề tài`,
+      `- Chưa xuất bản: ${stories.filter((s) => String(s.important) === '1' && s.article_status_label !== 'Published').length} đề tài`,
       `- Đã xuất bản: ${stories.filter((s) => String(s.important) === '1' && s.article_status_label === 'Published').length} đề tài`,
     ];
 

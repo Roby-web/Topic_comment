@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   FileText,
   Clock,
@@ -24,22 +24,19 @@ interface ImportantStoriesColumnProps {
   storyDate?: string;   // The effective date for stories (e.g. 2026-09-24)
 }
 
-type TabType = 'pending' | 'published' | 'all';
+type TabType = 'pending' | 'published';
 
 export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
   stories,
   selectedDate,
   storyDate,
 }) => {
-  // Requirement: "Số lượng đề tài chưa lên trang, chiếm tỉ trọng bao nhiêu: active mặc định vào tab này"
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBan, setSelectedBan] = useState<string>('all');
   const [selectedStoryForModal, setSelectedStoryForModal] = useState<StoryItem | null>(null);
 
   // Compute Vietnamese date string for the title
-  // Requirement: Sửa tiêu đề "Đề tài Quan trọng ngày [ngày trước đó]"
-  // Ví dụ: Khi chọn Hôm nay - thứ 6, ngày 25/9. Thì box Đề tài quan trọng lấy dữ liệu của ngày thứ 5, 24/9.
   const effectiveDateYmd = storyDate || selectedDate;
   const getFormattedStoryDate = (ymd: string) => {
     try {
@@ -66,7 +63,7 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
   // Total important
   const totalImportant = importantStories.length;
 
-  // Pending (Chưa lên trang - Chưa xuất bản)
+  // Pending (Chưa xuất bản)
   const pendingStories = useMemo(() => {
     return importantStories.filter((s) => s.article_status_label !== 'Published');
   }, [importantStories]);
@@ -78,6 +75,15 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
 
   const pendingCount = pendingStories.length;
   const publishedCount = publishedStories.length;
+
+  // Requirement: "Khi tab 'Chưa xuất bản' không có dữ liệu --> active vào tab 'Đã xuất bản'"
+  useEffect(() => {
+    if (pendingCount === 0 && publishedCount > 0) {
+      setActiveTab('published');
+    } else if (pendingCount > 0) {
+      setActiveTab('pending');
+    }
+  }, [pendingCount, publishedCount]);
 
   const pendingSharePct = totalImportant > 0 ? Math.round((pendingCount / totalImportant) * 100) : 0;
   const publishedSharePct = totalImportant > 0 ? Math.round((publishedCount / totalImportant) * 100) : 0;
@@ -93,14 +99,7 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
 
   // Stories to display based on active tab + filters
   const filteredStories = useMemo(() => {
-    let list: StoryItem[] = [];
-    if (activeTab === 'pending') {
-      list = pendingStories;
-    } else if (activeTab === 'published') {
-      list = publishedStories;
-    } else {
-      list = importantStories;
-    }
+    let list: StoryItem[] = activeTab === 'pending' ? pendingStories : publishedStories;
 
     if (selectedBan !== 'all') {
       list = list.filter((s) => s.ban_name === selectedBan);
@@ -117,7 +116,7 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
     }
 
     return list;
-  }, [activeTab, pendingStories, publishedStories, importantStories, selectedBan, searchQuery]);
+  }, [activeTab, pendingStories, publishedStories, selectedBan, searchQuery]);
 
   const formatDeadline = (todate?: string) => {
     if (!todate) return 'Chưa có hạn';
@@ -142,38 +141,46 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
     return 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
-  const getArticleStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Published':
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-            <span>Đã xuất bản</span>
-          </span>
-        );
-      case 'Editing':
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-            <Clock className="w-3 h-3 text-amber-600" />
-            <span>Đang biên tập</span>
-          </span>
-        );
-      case 'Verifying':
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-            <Layers className="w-3 h-3 text-blue-600" />
-            <span>Chờ thẩm định</span>
-          </span>
-        );
-      case 'None':
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-            <Clock className="w-3 h-3 text-slate-400" />
-            <span>Chưa lên trang</span>
-          </span>
-        );
+  // Requirement: "Tham số 'article_status_label' show ra đúng dữ liệu trả ra tương ứng, không việt hóa."
+  const getArticleStatusBadge = (status?: string) => {
+    const label = status || 'None';
+    const isPublished = label === 'Published';
+    const isEditing = label === 'Editing';
+    const isVerifying = label === 'Verifying';
+
+    if (isPublished) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-mono">
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          <span>{label}</span>
+        </span>
+      );
     }
+
+    if (isEditing) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-mono">
+          <Clock className="w-3 h-3 text-amber-600" />
+          <span>{label}</span>
+        </span>
+      );
+    }
+
+    if (isVerifying) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-mono">
+          <Layers className="w-3 h-3 text-blue-600" />
+          <span>{label}</span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-mono">
+        <Clock className="w-3 h-3 text-slate-400" />
+        <span>{label}</span>
+      </span>
+    );
   };
 
   return (
@@ -192,30 +199,10 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
           </span>
         </div>
 
-        {/* 3 Summary Statistic Cards */}
-        <div className="grid grid-cols-3 gap-2">
+        {/* 2 Summary Statistic Cards: Chưa xuất bản & Đã xuất bản (Tổng đã có ở góc phải) */}
+        <div className="grid grid-cols-2 gap-2.5">
           
-          {/* Card 1: Tổng số đề tài quan trọng */}
-          <div
-            onClick={() => setActiveTab('all')}
-            className={`p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
-              activeTab === 'all'
-                ? 'bg-slate-100 border-slate-400 shadow-xs'
-                : 'bg-white border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-              Tổng số
-            </div>
-            <div className="text-xl font-bold text-slate-900 mt-0.5 tabular-nums">
-              {totalImportant}
-            </div>
-            <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
-              100% đề tài
-            </div>
-          </div>
-
-          {/* Card 2: Số lượng đề tài CHƯA LÊN TRANG (Active Mặc định) */}
+          {/* Card 1: Số lượng đề tài CHƯA XUẤT BẢN */}
           <div
             onClick={() => setActiveTab('pending')}
             className={`p-2.5 rounded-lg border cursor-pointer transition-all text-center relative ${
@@ -225,7 +212,7 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
             }`}
           >
             <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider flex items-center justify-center gap-0.5">
-              <span>Chưa lên trang</span>
+              <span>Chưa xuất bản</span>
             </div>
             <div className="text-xl font-extrabold text-amber-700 mt-0.5 tabular-nums">
               {pendingCount}
@@ -238,7 +225,7 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
             )}
           </div>
 
-          {/* Card 3: Số lượng ĐÃ XUẤT BẢN */}
+          {/* Card 2: Số lượng ĐÃ XUẤT BẢN */}
           <div
             onClick={() => setActiveTab('published')}
             className={`p-2.5 rounded-lg border cursor-pointer transition-all text-center relative ${
@@ -294,7 +281,7 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
       </div>
 
       {/* Tabs Switcher Navigation */}
-      <div className="border-b border-slate-200 bg-slate-50/60 px-4 flex items-center gap-4 text-xs font-semibold">
+      <div className="border-b border-slate-200 bg-slate-50/60 px-4 flex items-center gap-6 text-xs font-semibold">
         <button
           onClick={() => setActiveTab('pending')}
           className={`py-2.5 border-b-2 transition-colors flex items-center gap-1.5 ${
@@ -304,7 +291,7 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
           }`}
         >
           <Clock className="w-3.5 h-3.5" />
-          <span>Chưa lên trang ({pendingCount})</span>
+          <span>Chưa xuất bản ({pendingCount})</span>
         </button>
 
         <button
@@ -317,17 +304,6 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
         >
           <CheckCircle2 className="w-3.5 h-3.5" />
           <span>Đã xuất bản ({publishedCount})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('all')}
-          className={`py-2.5 border-b-2 transition-colors flex items-center gap-1.5 ml-auto ${
-            activeTab === 'all'
-              ? 'border-[#9f224e] text-[#9f224e]'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <span>Tất cả ({totalImportant})</span>
         </button>
       </div>
 

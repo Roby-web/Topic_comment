@@ -83,14 +83,14 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({ story, onClo
             </div>
 
             <div>
-              <span className="text-slate-500 block mb-1">Tiến độ bài viết:</span>
-              <div className="flex items-center gap-1 font-semibold">
+              <span className="text-slate-500 block mb-1">article_status_label:</span>
+              <div className="flex items-center gap-1 font-semibold font-mono text-xs">
                 {isPublished ? (
-                  <span className="text-emerald-700 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Đã xuất bản (Published)
+                  <span className="text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {story.article_status_label}
                   </span>
                 ) : (
-                  <span className="text-amber-700 flex items-center gap-1">
+                  <span className="text-amber-700 flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                     <Clock className="w-3.5 h-3.5" /> {story.article_status_label}
                   </span>
                 )}
