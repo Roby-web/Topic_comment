@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
 import { TrafficSection } from './components/TrafficSection';
 import { EngagementGroupsSection } from './components/EngagementGroupsSection';
 import { EditorialCommentsSection } from './components/EditorialCommentsSection';
 import { ImportantStoriesColumn } from './components/ImportantStoriesColumn';
 import { ApiConfigModal } from './components/ApiConfigModal';
+import { NewCommentDropdownBar } from './components/NewCommentDropdownBar';
 import {
   SiteTrafficRow,
   EngagementGroup,
   StoryItem,
   EditorialComment,
   SecretaryProfile,
+  CommentCategory,
 } from './types';
 import {
   SECRETARIES,
@@ -27,6 +29,7 @@ import {
   fetchEditorialData,
   getYesterdayYmd,
 } from './services/apiService';
+import { getRosterForDate } from './services/secretaryRosterService';
 import { AlertCircle, Check } from 'lucide-react';
 
 const STORAGE_KEY_COMMENTS_PREFIX = 'vne_editorial_comments_by_date_v2';
@@ -54,8 +57,8 @@ export default function App() {
   
   // Comments loaded by date:
   // If user has explicitly customized comments for this date, load customized version.
-  // Otherwise, load the exact date comment from API (or date-specific dataset).
-  const loadCommentsForDate = (dateKey: string, fallbackComment?: EditorialComment): EditorialComment[] => {
+  // When no comment exists from API or user customization, leave it empty (never fabricate mock content).
+  const loadCommentsForDate = (dateKey: string, apiComment?: EditorialComment): EditorialComment[] => {
     try {
       const savedUserCustomized = localStorage.getItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${dateKey}`);
       if (savedUserCustomized) {
@@ -64,9 +67,11 @@ export default function App() {
       }
     } catch {}
 
-    if (fallbackComment) return [fallbackComment];
-    if (dateKey === '2026-09-24') return MOCK_EDITORIAL_COMMENTS_24_09;
-    if (dateKey === '2026-09-23') return MOCK_EDITORIAL_COMMENTS;
+    // Only return comment if actually provided by API/database
+    if (apiComment && apiComment.htmlContent && apiComment.htmlContent.trim()) {
+      return [apiComment];
+    }
+    // Strictly return empty array if no comment for this date: "KHÔNG ĐƯỢC TỰ BỊA nội dung. Để trống & show text 'Chưa có nhận xét'"
     return [];
   };
 
@@ -161,7 +166,7 @@ export default function App() {
   };
 
   // Comment Handlers: explicitly save changes to user customized storage
-  const handleUpdateComment = (id: string, updated: { title: string; html: string }) => {
+  const handleUpdateComment = (id: string, updated: { title: string; html: string; category?: CommentCategory }) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     setComments((prev) => {
@@ -171,6 +176,7 @@ export default function App() {
               ...c,
               summaryTitle: updated.title,
               htmlContent: updated.html,
+              category: updated.category || c.category || 'vnexpress',
               updatedAt: timeStr,
               author: selectedSecretary.username,
             }
@@ -191,7 +197,7 @@ export default function App() {
     showToast('Đã xóa khối nhận xét!');
   };
 
-  const handleAddComment = (content: { title: string; html: string }) => {
+  const handleAddComment = (content: { title: string; html: string; category?: CommentCategory }) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const newComment: EditorialComment = {
@@ -202,6 +208,7 @@ export default function App() {
       updatedAt: timeStr,
       summaryTitle: content.title,
       htmlContent: content.html,
+      category: content.category || 'vnexpress',
     };
     setComments((prev) => {
       const next = [newComment, ...prev];
@@ -210,6 +217,80 @@ export default function App() {
     });
     showToast('Đã thêm nhận xét mới của Thư ký trực!');
   };
+
+  // Handler for adding comment from the top dropdown bar (allows adding to any target date)
+  const handleAddNewCommentFromTop = (data: {
+    title: string;
+    html: string;
+    category: CommentCategory;
+    date: string;
+    author: string;
+  }) => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const targetDate = data.date;
+
+    const newComment: EditorialComment = {
+      id: `cm-${Date.now()}`,
+      author: data.author || selectedSecretary.username,
+      role: 'Thư ký trực BBT',
+      dateStr: targetDate,
+      updatedAt: timeStr,
+      summaryTitle: data.title,
+      htmlContent: data.html,
+      category: data.category,
+    };
+
+    // Save to target date storage
+    try {
+      const existing = localStorage.getItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${targetDate}`);
+      let list: EditorialComment[] = existing ? JSON.parse(existing) : [];
+      if (!Array.isArray(list)) list = [];
+      list = [newComment, ...list];
+      localStorage.setItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${targetDate}`, JSON.stringify(list));
+    } catch {}
+
+    // If currently viewing targetDate, update state
+    if (targetDate === fromDate) {
+      setComments((prev) => [newComment, ...prev]);
+    } else {
+      // Switch view to the date user just added comment for!
+      handleDateChange(targetDate, targetDate, targetDate);
+    }
+
+    showToast(`Đã thêm nhận xét cho ngày ${targetDate} (${data.category === 'vnexpress' ? 'VnExpress' : 'Site vệ tinh'})!`);
+  };
+
+  // Compute recent dates (past 14 days) that have NO comments yet
+  // "Trường ngày nhận xét: mặc định active vào ngày gần nhất chưa có nhận xét."
+  const availableDatesWithoutComments = useMemo(() => {
+    const dates: string[] = [];
+    const now = new Date();
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const ymd = `${y}-${m}-${day}`;
+
+      // Check if localStorage has comments for this date
+      const saved = localStorage.getItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${ymd}`);
+      let hasComments = false;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            hasComments = true;
+          }
+        } catch {}
+      }
+      if (!hasComments) {
+        dates.push(ymd);
+      }
+    }
+    return dates;
+  }, [comments, fromDate]);
 
   // Quick export plain text summary for BBT group chat
   const handleExportSummary = () => {
@@ -279,6 +360,13 @@ export default function App() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
           {/* LEFT COLUMN: Exactly matching the layout, cards & info from image.png (approx 62% width) */}
           <div className="xl:col-span-7 2xl:col-span-8 space-y-4">
+            {/* Button "Thêm mới Nhận xét" chuyển lên đầu, trên ngày đang xem. Bấm vào xổ xuống Form nhập nhận xét */}
+            <NewCommentDropdownBar
+              currentViewingDate={fromDate}
+              availableDatesWithoutComments={availableDatesWithoutComments}
+              onAddComment={handleAddNewCommentFromTop}
+            />
+
             {/* Master Card Enclosure matching image.png */}
             <div className="bg-white rounded-xl border border-slate-300 p-4 sm:p-6 shadow-xs space-y-5">
               {/* Card Header matching image.png: "Thứ tư, 23/9" in red + "Thư ký trực: thuytrang v" */}

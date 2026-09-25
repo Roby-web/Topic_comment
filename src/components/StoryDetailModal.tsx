@@ -80,20 +80,20 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({ story, onClo
             <div>
               <span className="text-slate-500 block mb-1">Trạng thái đề tài:</span>
               <div className="font-semibold text-slate-900">
-                {story.status_label}
+                Đề tài: {story.status_label || (isPublished ? 'Hoàn thành' : 'Đang triển khai')}
               </div>
             </div>
 
             <div>
-              <span className="text-slate-500 block mb-1">article_status_label:</span>
-              <div className="flex items-center gap-1 font-semibold font-mono text-xs">
+              <span className="text-slate-500 block mb-1">Trạng thái bài viết:</span>
+              <div className="flex items-center gap-1 font-semibold text-xs">
                 {isPublished ? (
-                  <span className="text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {story.article_status_label}
+                  <span className="text-emerald-700 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Bài viết: {story.article_status_label}
                   </span>
                 ) : (
-                  <span className="text-amber-700 flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    <Clock className="w-3.5 h-3.5" /> {story.article_status_label}
+                  <span className="text-amber-700 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> Bài viết: {!story.article_status_label || story.article_status_label === 'None' || story.article_status_label === 'none' ? 'Chưa tạo bài' : story.article_status_label}
                   </span>
                 )}
               </div>

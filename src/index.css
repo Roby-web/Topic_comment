@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+@layer base {
+  /* Ensure proper typography rendering for Vietnamese */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .font-serif {
+    font-family: 'Merriweather', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+}

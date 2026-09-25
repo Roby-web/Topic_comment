@@ -4,16 +4,11 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Search,
-  Filter,
   User,
   Calendar,
   Layers,
-  ChevronRight,
-  TrendingUp,
   Globe,
   Smartphone,
-  Sparkles,
 } from 'lucide-react';
 import { StoryItem } from '../types';
 import { StoryDetailModal } from './StoryDetailModal';
@@ -24,15 +19,15 @@ interface ImportantStoriesColumnProps {
   storyDate?: string;   // The effective date for stories (e.g. 2026-09-24)
 }
 
-type TabType = 'pending' | 'published';
+// 3 groups: 'overdue' (Quá hạn), 'upcoming' (Chưa đến hạn), 'published' (Đã xuất bản)
+type ActiveGroupType = 'overdue' | 'upcoming' | 'published';
 
 export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
   stories,
   selectedDate,
   storyDate,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('pending');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeGroup, setActiveGroup] = useState<ActiveGroupType>('overdue');
   const [selectedBan, setSelectedBan] = useState<string>('all');
   const [selectedStoryForModal, setSelectedStoryForModal] = useState<StoryItem | null>(null);
 
@@ -63,60 +58,152 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
   // Total important
   const totalImportant = importantStories.length;
 
-  // Pending (Chưa xuất bản)
-  const pendingStories = useMemo(() => {
-    return importantStories.filter((s) => s.article_status_label !== 'Published');
-  }, [importantStories]);
-
-  // Published (Đã xuất bản)
+  // Published stories (Đã xuất bản)
   const publishedStories = useMemo(() => {
     return importantStories.filter((s) => s.article_status_label === 'Published');
   }, [importantStories]);
 
-  const pendingCount = pendingStories.length;
-  const publishedCount = publishedStories.length;
-
-  // Requirement: "Khi tab 'Chưa xuất bản' không có dữ liệu --> active vào tab 'Đã xuất bản'"
-  useEffect(() => {
-    if (pendingCount === 0 && publishedCount > 0) {
-      setActiveTab('published');
-    } else if (pendingCount > 0) {
-      setActiveTab('pending');
-    }
-  }, [pendingCount, publishedCount]);
-
-  const pendingSharePct = totalImportant > 0 ? Math.round((pendingCount / totalImportant) * 100) : 0;
-  const publishedSharePct = totalImportant > 0 ? Math.round((publishedCount / totalImportant) * 100) : 0;
-
-  // Extract unique departments (Ban phụ trách)
-  const departments = useMemo(() => {
-    const set = new Set<string>();
-    importantStories.forEach((s) => {
-      if (s.ban_name) set.add(s.ban_name);
-    });
-    return Array.from(set).sort();
+  // Pending stories (Chưa xuất bản)
+  const pendingStories = useMemo(() => {
+    return importantStories.filter((s) => s.article_status_label !== 'Published');
   }, [importantStories]);
 
-  // Stories to display based on active tab + filters
-  const filteredStories = useMemo(() => {
-    let list: StoryItem[] = activeTab === 'pending' ? pendingStories : publishedStories;
+  // Helper to determine if a pending story is overdue
+  // Condition: explicit is_qua_han === '1' OR todate timestamp is in the past
+  const isStoryOverdue = (s: StoryItem): boolean => {
+    if (String(s.is_qua_han) === '1') return true;
+    if (s.todate) {
+      const ts = parseInt(s.todate, 10);
+      if (!isNaN(ts) && ts > 0) {
+        // Compare with current timestamp in seconds
+        const nowSec = Math.floor(Date.now() / 1000);
+        return ts < nowSec;
+      }
+    }
+    return false;
+  };
 
-    if (selectedBan !== 'all') {
-      list = list.filter((s) => s.ban_name === selectedBan);
+  // Group 1: Quá hạn (Chưa xuất bản & Quá hạn)
+  const overdueStories = useMemo(() => {
+    return pendingStories.filter((s) => isStoryOverdue(s));
+  }, [pendingStories]);
+
+  // Group 2: Chưa đến hạn (Chưa xuất bản & Chưa quá hạn)
+  const upcomingStories = useMemo(() => {
+    return pendingStories.filter((s) => !isStoryOverdue(s));
+  }, [pendingStories]);
+
+  const overdueCount = overdueStories.length;
+  const upcomingCount = upcomingStories.length;
+  const publishedCount = publishedStories.length;
+
+  // Build list of active cards with count > 0:
+  // "Tab nào không có dữ liệu thì ẩn đi, điều chỉnh chiều rộng các tab còn lại full box"
+  const visibleCards = useMemo(() => {
+    const cards: Array<{
+      key: ActiveGroupType;
+      label: string;
+      count: number;
+      sharePct: number;
+      activeTheme: string;
+      restTheme: string;
+      textCountColor: string;
+      textShareColor: string;
+      badgeColor: string;
+    }> = [];
+
+    if (overdueCount > 0) {
+      cards.push({
+        key: 'overdue',
+        label: 'Quá hạn',
+        count: overdueCount,
+        sharePct: totalImportant > 0 ? Math.round((overdueCount / totalImportant) * 100) : 0,
+        activeTheme: 'bg-rose-50/70 border-rose-500 ring-2 ring-rose-200 shadow-xs',
+        restTheme: 'bg-white border-slate-200 hover:bg-rose-50/30',
+        textCountColor: 'text-rose-700',
+        textShareColor: 'text-rose-600',
+        badgeColor: 'bg-rose-500',
+      });
     }
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (s) =>
-          s.title.toLowerCase().includes(q) ||
-          s.user_name.toLowerCase().includes(q) ||
-          s.ban_name.toLowerCase().includes(q)
-      );
+    if (upcomingCount > 0) {
+      cards.push({
+        key: 'upcoming',
+        label: 'Chưa đến hạn',
+        count: upcomingCount,
+        sharePct: totalImportant > 0 ? Math.round((upcomingCount / totalImportant) * 100) : 0,
+        activeTheme: 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-200 shadow-xs',
+        restTheme: 'bg-white border-slate-200 hover:bg-amber-50/30',
+        textCountColor: 'text-amber-700',
+        textShareColor: 'text-amber-600',
+        badgeColor: 'bg-amber-500',
+      });
     }
 
-    return list;
-  }, [activeTab, pendingStories, publishedStories, selectedBan, searchQuery]);
+    if (publishedCount > 0) {
+      cards.push({
+        key: 'published',
+        label: 'Đã xuất bản',
+        count: publishedCount,
+        sharePct: totalImportant > 0 ? Math.round((publishedCount / totalImportant) * 100) : 0,
+        activeTheme: 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-200 shadow-xs',
+        restTheme: 'bg-white border-slate-200 hover:bg-emerald-50/30',
+        textCountColor: 'text-emerald-700',
+        textShareColor: 'text-emerald-600',
+        badgeColor: 'bg-emerald-500',
+      });
+    }
+
+    return cards;
+  }, [overdueCount, upcomingCount, publishedCount, totalImportant]);
+
+  // Ensure activeGroup is valid and points to a visible card
+  useEffect(() => {
+    if (visibleCards.length > 0) {
+      const exists = visibleCards.some((c) => c.key === activeGroup);
+      if (!exists) {
+        setActiveGroup(visibleCards[0].key);
+      }
+    }
+  }, [visibleCards, activeGroup]);
+
+  // Reset selectedBan when activeGroup changes
+  const handleSelectGroup = (groupKey: ActiveGroupType) => {
+    setActiveGroup(groupKey);
+    setSelectedBan('all');
+  };
+
+  // Stories belonging to currently active group
+  const activeGroupStories = useMemo(() => {
+    switch (activeGroup) {
+      case 'overdue':
+        return overdueStories;
+      case 'upcoming':
+        return upcomingStories;
+      case 'published':
+        return publishedStories;
+      default:
+        return overdueStories;
+    }
+  }, [activeGroup, overdueStories, upcomingStories, publishedStories]);
+
+  // Thống kê số lượng đề tài theo ban trong nhóm đang active
+  const banStatisticsForGroup = useMemo(() => {
+    const map = new Map<string, number>();
+    activeGroupStories.forEach((s) => {
+      const ban = s.ban_name || 'Khác';
+      map.set(ban, (map.get(ban) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'vi'));
+  }, [activeGroupStories]);
+
+  // Filtered stories to display (including ban filter)
+  const displayedStories = useMemo(() => {
+    if (selectedBan === 'all') return activeGroupStories;
+    return activeGroupStories.filter((s) => s.ban_name === selectedBan);
+  }, [activeGroupStories, selectedBan]);
 
   // Format deadline according to Rule.md Section 2: {Giờ}:{Phút}, {Ngày}/{Tháng}
   const formatDeadline = (todate?: string) => {
@@ -135,57 +222,15 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
     }
   };
 
-  const getDepartmentColor = (banName: string) => {
-    const lower = banName.toLowerCase();
-    if (lower.includes('thời sự')) return 'bg-red-50 text-red-700 border-red-200';
-    if (lower.includes('kinh doanh')) return 'bg-blue-50 text-blue-700 border-blue-200';
-    if (lower.includes('pháp luật')) return 'bg-amber-50 text-amber-700 border-amber-200';
-    if (lower.includes('thế giới')) return 'bg-purple-50 text-purple-700 border-purple-200';
-    if (lower.includes('sức khỏe')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (lower.includes('thể thao')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    return 'bg-slate-50 text-slate-700 border-slate-200';
-  };
-
-  // Requirement: "Tham số 'article_status_label' show ra đúng dữ liệu trả ra tương ứng, không việt hóa."
-  const getArticleStatusBadge = (status?: string) => {
-    const label = status || 'None';
-    const isPublished = label === 'Published';
-    const isEditing = label === 'Editing';
-    const isVerifying = label === 'Verifying';
-
-    if (isPublished) {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-mono">
-          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-          <span>{label}</span>
-        </span>
-      );
+  // Requirement: Sửa tên tag:
+  // - Trạng thái bài viết sửa thành "Bài viết: [tên trạng thái]"
+  // - Riêng trạng thái "None" của bài viết Việt hóa thành "Chưa tạo bài"
+  // - Bỏ background tag đi
+  const formatArticleStatusText = (status?: string) => {
+    if (!status || status === 'None' || status === 'none' || status === '0') {
+      return 'Bài viết: Chưa tạo bài';
     }
-
-    if (isEditing) {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-mono">
-          <Clock className="w-3 h-3 text-amber-600" />
-          <span>{label}</span>
-        </span>
-      );
-    }
-
-    if (isVerifying) {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-mono">
-          <Layers className="w-3 h-3 text-blue-600" />
-          <span>{label}</span>
-        </span>
-      );
-    }
-
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-mono">
-        <Clock className="w-3 h-3 text-slate-400" />
-        <span>{label}</span>
-      </span>
-    );
+    return `Bài viết: ${status}`;
   };
 
   return (
@@ -204,180 +249,159 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
           </span>
         </div>
 
-        {/* 2 Summary Statistic Cards: Chưa xuất bản & Đã xuất bản (Tổng đã có ở góc phải) */}
-        <div className="grid grid-cols-2 gap-2.5">
-          
-          {/* Card 1: Số lượng đề tài CHƯA XUẤT BẢN */}
-          <div
-            onClick={() => setActiveTab('pending')}
-            className={`p-2.5 rounded-lg border cursor-pointer transition-all text-center relative ${
-              activeTab === 'pending'
-                ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-200 shadow-xs'
-                : 'bg-white border-slate-200 hover:bg-amber-50/30'
-            }`}
-          >
-            <div className="text-[10px] text-amber-800 font-bold uppercase tracking-wider flex items-center justify-center gap-0.5">
-              <span>Chưa xuất bản</span>
-            </div>
-            <div className="text-xl font-extrabold text-amber-700 mt-0.5 tabular-nums">
-              {pendingCount}
-            </div>
-            <div className="text-[10px] font-bold text-amber-700 mt-0.5">
-              Chiếm {pendingSharePct}%
-            </div>
-            {activeTab === 'pending' && (
-              <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-amber-500 rounded-full border-2 border-white" />
-            )}
-          </div>
-
-          {/* Card 2: Số lượng ĐÃ XUẤT BẢN */}
-          <div
-            onClick={() => setActiveTab('published')}
-            className={`p-2.5 rounded-lg border cursor-pointer transition-all text-center relative ${
-              activeTab === 'published'
-                ? 'bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-200 shadow-xs'
-                : 'bg-white border-slate-200 hover:bg-emerald-50/30'
-            }`}
-          >
-            <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider flex items-center justify-center gap-0.5">
-              <span>Đã xuất bản</span>
-            </div>
-            <div className="text-xl font-extrabold text-emerald-700 mt-0.5 tabular-nums">
-              {publishedCount}
-            </div>
-            <div className="text-[10px] font-bold text-emerald-700 mt-0.5">
-              Chiếm {publishedSharePct}%
-            </div>
-            {activeTab === 'published' && (
-              <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
-            )}
-          </div>
-
-        </div>
-
-        {/* Search & Filter Toolbar */}
-        <div className="mt-3 flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm theo tên đề tài, phóng viên..."
-              className="w-full text-xs pl-8 pr-2.5 py-1.5 bg-white border border-slate-200 rounded text-slate-700 focus:outline-none focus:border-[#9f224e]"
-            />
-          </div>
-
-          <div className="relative shrink-0">
-            <select
-              value={selectedBan}
-              onChange={(e) => setSelectedBan(e.target.value)}
-              className="text-xs py-1.5 pl-2 pr-6 bg-white border border-slate-200 rounded text-slate-700 focus:outline-none focus:border-[#9f224e] cursor-pointer"
-            >
-              <option value="all">Tất cả Ban ({importantStories.length})</option>
-              {departments.map((b) => (
-                <option key={b} value={b}>
-                  Ban {b}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs Switcher Navigation */}
-      <div className="border-b border-slate-200 bg-slate-50/60 px-4 flex items-center gap-6 text-xs font-semibold">
-        <button
-          onClick={() => setActiveTab('pending')}
-          className={`py-2.5 border-b-2 transition-colors flex items-center gap-1.5 ${
-            activeTab === 'pending'
-              ? 'border-amber-600 text-amber-800'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+        {/* Dynamic Summary Statistic Cards: Ẩn tab có count = 0, chia đều chiều rộng full box */}
+        <div
+          className={`grid gap-2 ${
+            visibleCards.length === 1
+              ? 'grid-cols-1'
+              : visibleCards.length === 2
+              ? 'grid-cols-2'
+              : 'grid-cols-3'
           }`}
         >
-          <Clock className="w-3.5 h-3.5" />
-          <span>Chưa xuất bản ({pendingCount})</span>
-        </button>
+          {visibleCards.map((card) => {
+            const isActive = activeGroup === card.key;
+            return (
+              <div
+                key={card.key}
+                onClick={() => handleSelectGroup(card.key)}
+                className={`p-2.5 rounded-lg border cursor-pointer transition-all text-center relative ${
+                  isActive ? card.activeTheme : card.restTheme
+                }`}
+              >
+                <div className="text-[10px] text-slate-700 font-bold uppercase tracking-wider flex items-center justify-center gap-0.5">
+                  <span>{card.label}</span>
+                </div>
+                <div className={`text-lg font-extrabold mt-0.5 tabular-nums flex items-baseline justify-center gap-1.5 ${card.textCountColor}`}>
+                  <span>{card.count}</span>
+                  <span className={`text-xs font-semibold ${card.textShareColor}`}>
+                    ({card.sharePct}%)
+                  </span>
+                </div>
+                {isActive && (
+                  <span className={`absolute -top-1.5 -right-1.5 w-3 h-3 ${card.badgeColor} rounded-full border-2 border-white`} />
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-        <button
-          onClick={() => setActiveTab('published')}
-          className={`py-2.5 border-b-2 transition-colors flex items-center gap-1.5 ${
-            activeTab === 'published'
-              ? 'border-emerald-600 text-emerald-800'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          <span>Đã xuất bản ({publishedCount})</span>
-        </button>
+        {/* Thống kê số lượng đề tài theo ban - Bấm vào sẽ active & lọc kết quả tương ứng (bấm lại để tắt lọc, không dùng nút 'Tất cả') */}
+        {banStatisticsForGroup.length > 0 && (
+          <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-slate-400 font-medium mr-1 text-[11px]">Theo ban:</span>
+            {banStatisticsForGroup.map((b) => {
+              const isSelected = selectedBan === b.name;
+              return (
+                <button
+                  key={b.name}
+                  type="button"
+                  onClick={() => setSelectedBan(isSelected ? 'all' : b.name)}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#9f224e] text-white font-bold shadow-2xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium'
+                  }`}
+                  title={isSelected ? `Bỏ lọc Ban ${b.name}` : `Lọc theo Ban ${b.name}`}
+                >
+                  <span>{b.name}:</span>
+                  <span className="tabular-nums font-semibold">{b.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Stories List for Active Tab */}
+      {/* Stories List for Active Group */}
       <div className="p-3 space-y-2.5 overflow-y-auto max-h-[750px] divide-y divide-slate-100 flex-1">
-        {filteredStories.length === 0 ? (
+        {displayedStories.length === 0 ? (
           <div className="py-12 text-center text-slate-400 space-y-2">
             <FileText className="w-8 h-8 mx-auto text-slate-300" />
-            <p className="text-xs">Không có đề tài nào phù hợp với bộ lọc</p>
+            <p className="text-xs">
+              {selectedBan !== 'all'
+                ? `Không có đề tài nào thuộc Ban ${selectedBan}`
+                : activeGroup === 'overdue'
+                ? 'Không có đề tài nào quá hạn'
+                : activeGroup === 'upcoming'
+                ? 'Không có đề tài nào chưa đến hạn'
+                : 'Không có đề tài nào đã xuất bản'}
+            </p>
           </div>
         ) : (
-          filteredStories.map((story) => {
+          displayedStories.map((story) => {
             const hasBuildTop = Boolean(story.buildtop_info?.trangchu_beta || story.buildtop_info?.trangchu_mobile);
-            const isOverdue = story.is_qua_han === '1';
+            const isOverdue = isStoryOverdue(story);
 
             return (
               <div
                 key={story.story_id}
                 onClick={() => setSelectedStoryForModal(story)}
-                className="pt-2.5 first:pt-0 group hover:bg-slate-50/70 p-2 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                className="pt-2.5 first:pt-0 group hover:bg-slate-50/70 p-2.5 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-slate-200"
               >
-                {/* Row 1: Badges - Ban phụ trách & Trạng thái bài viết & Quá hạn */}
-                <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                  {/* Ban phụ trách */}
-                  <span
-                    className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${getDepartmentColor(
-                      story.ban_name
-                    )}`}
-                  >
-                    Ban {story.ban_name}
-                  </span>
-
-                  {/* Tiến độ bài viết */}
-                  {getArticleStatusBadge(story.article_status_label)}
-
-                  {/* Trạng thái đề tài */}
-                  <span className="text-[10px] text-slate-500 font-medium px-1.5 py-0.5 bg-slate-100 rounded">
-                    {story.status_label}
-                  </span>
-
-                  {/* Cảnh báo quá hạn nếu có */}
-                  {isOverdue && (
-                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                      <AlertCircle className="w-2.5 h-2.5" /> Quá hạn
-                    </span>
-                  )}
-
-                  {/* Vị trí Build Top nếu có */}
-                  {hasBuildTop && (
-                    <span className="ml-auto text-[10px] font-semibold text-[#9f224e] bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-1">
-                      <Globe className="w-2.5 h-2.5" />
-                      <span>
-                        Top{' '}
-                        {story.buildtop_info?.trangchu_beta?.position
-                          ? `Web #${story.buildtop_info.trangchu_beta.position}`
-                          : `Mobile #${story.buildtop_info?.trangchu_mobile?.position}`}
-                      </span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Row 2: Tên đề tài - Merriweather serif for Article Titles per design.md Rule #1 */}
-                <h4 className="font-serif font-bold text-slate-900 text-xs leading-snug group-hover:text-[#9f224e] transition-colors mb-1.5">
+                {/* Row 1: Tên đề tài - Chuẩn Merriweather serif */}
+                <h4 className="font-serif font-bold text-slate-900 text-sm leading-snug group-hover:text-[#9f224e] transition-colors mb-2">
                   {story.title}
                 </h4>
 
-                {/* Row 3: Acc phóng viên triển khai + Hạn hoàn thành + Chi tiết */}
-                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-50">
-                  <div className="flex items-center gap-3">
+                {/* Row 2: Chuyển các tag xuống dưới Tên đề tài, BỎ background tag; Đảo Đề tài lên trước Bài viết */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs mb-2">
+                  {/* Ban phụ trách (không background) */}
+                  <span className="font-medium text-slate-700">
+                    Ban {story.ban_name}
+                  </span>
+
+                  <span className="text-slate-300">•</span>
+
+                  {/* Trạng thái đề tài: "Đề tài: [tên trạng thái]" (được đảo lên trước) */}
+                  <span className="font-medium text-slate-700">
+                    Đề tài: {story.status_label || (story.article_status_label === 'Published' ? 'Hoàn thành' : 'Đang triển khai')}
+                  </span>
+
+                  <span className="text-slate-300">•</span>
+
+                  {/* Trạng thái bài viết: "Bài viết: [tên trạng thái]" */}
+                  <span className={`font-medium ${
+                    story.article_status_label === 'Published'
+                      ? 'text-emerald-700'
+                      : story.article_status_label === 'Editing'
+                      ? 'text-amber-700'
+                      : 'text-slate-600'
+                  }`}>
+                    {formatArticleStatusText(story.article_status_label)}
+                  </span>
+
+                  {/* Cảnh báo quá hạn nếu có (không background) */}
+                  {isOverdue && story.article_status_label !== 'Published' && (
+                    <>
+                      <span className="text-slate-300">•</span>
+                      <span className="font-semibold text-rose-600 inline-flex items-center gap-0.5">
+                        <AlertCircle className="w-3 h-3 text-rose-500" />
+                        <span>Quá hạn</span>
+                      </span>
+                    </>
+                  )}
+
+                  {/* Vị trí Build Top nếu có (không background) */}
+                  {hasBuildTop && (
+                    <>
+                      <span className="text-slate-300">•</span>
+                      <span className="font-semibold text-[#9f224e] inline-flex items-center gap-1">
+                        <Globe className="w-3 h-3" />
+                        <span>
+                          Top{' '}
+                          {story.buildtop_info?.trangchu_beta?.position
+                            ? `Web #${story.buildtop_info.trangchu_beta.position}`
+                            : `Mobile #${story.buildtop_info?.trangchu_mobile?.position}`}
+                        </span>
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Row 3: Acc phóng viên triển khai + Hạn hoàn thành */}
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100/80">
+                  <div className="flex items-center gap-4">
                     {/* Acc phóng viên */}
                     <div className="flex items-center gap-1 text-slate-700 font-medium">
                       <User className="w-3 h-3 text-slate-400" />
@@ -390,11 +414,6 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
                       <span>Hạn: {formatDeadline(story.todate)}</span>
                     </div>
                   </div>
-
-                  <span className="text-[11px] text-slate-400 group-hover:text-slate-700 flex items-center gap-0.5 font-medium">
-                    <span>Chi tiết</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </span>
                 </div>
               </div>
             );

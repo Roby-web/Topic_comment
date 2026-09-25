@@ -58,6 +58,8 @@ export interface StoryItem {
   buildtop_info?: BuildTopInfo;
 }
 
+export type CommentCategory = 'vnexpress' | 'others';
+
 export interface EditorialComment {
   id: string;
   author: string;
@@ -66,6 +68,7 @@ export interface EditorialComment {
   dateStr: string;
   htmlContent: string;
   summaryTitle?: string;
+  category?: CommentCategory; // 'vnexpress' | 'others' (Ngôi sao, English, Tia sáng)
 }
 
 export interface SecretaryProfile {
