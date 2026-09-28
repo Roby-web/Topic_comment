@@ -180,7 +180,7 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
             className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#9f224e] hover:bg-rose-50 px-2 py-1 rounded transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Thêm nhận xét VnExpress</span>
+            <span>Thêm nhận xét</span>
           </button>
         </div>
 
@@ -228,7 +228,7 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
             className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Thêm nhận xét Site vệ tinh</span>
+            <span>Thêm nhận xét</span>
           </button>
         </div>
 
