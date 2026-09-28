@@ -426,8 +426,8 @@ export default function App() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
           {/* LEFT COLUMN: Approximately 62% width */}
           <div className="xl:col-span-7 2xl:col-span-8 space-y-4">
-            {/* Button "Thêm mới Nhận xét": Chỉ hiển thị ở ngày chưa có nhận xét */}
-            {comments.length === 0 && availableDatesWithoutComments.length > 0 && (
+            {/* Tính năng Thêm mới nhận xét đề tài ở đầu trang, dành cho ngày gần nhất chưa có nhận xét/đề tài */}
+            {availableDatesWithoutComments.length > 0 && (
               <NewCommentDropdownBar
                 currentViewingDate={fromDate}
                 availableDatesWithoutComments={availableDatesWithoutComments}

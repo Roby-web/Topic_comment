@@ -3,7 +3,6 @@ import {
   Calendar,
   ChevronDown,
   Plus,
-  X,
   User,
   Sparkles,
   Building2,
@@ -118,7 +117,7 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 text-sm">Thêm mới nhận xét</span>
+              <span className="font-bold text-slate-900 text-sm">Thêm mới nhận xét đề tài</span>
             </div>
             <p className="text-[11px] text-slate-500">
               <strong className="text-slate-700">{formatVietnameseDate(selectedTargetDate)}</strong> • Trực chính: <span className="font-semibold text-slate-800">{roster.mainSecretaryName || roster.mainSecretary}</span> • Trực phụ: <span className="font-semibold text-slate-800">{roster.subSecretaryName || roster.subSecretary}</span>
@@ -126,28 +125,17 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleToggleDropdown}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-xs cursor-pointer shrink-0 ${
-            isOpen
-              ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
-              : 'bg-[#9f224e] text-white hover:bg-[#861b40]'
-          }`}
-        >
-          {isOpen ? (
-            <>
-              <X className="w-3.5 h-3.5" />
-              <span>Đóng</span>
-            </>
-          ) : (
-            <>
-              <Plus className="w-3.5 h-3.5" />
-              <span>Thêm nhận xét</span>
-              <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
-            </>
-          )}
-        </button>
+        {!isOpen && (
+          <button
+            type="button"
+            onClick={handleToggleDropdown}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-xs cursor-pointer shrink-0 bg-[#9f224e] text-white hover:bg-[#861b40]"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Thêm nhận xét</span>
+            <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
+          </button>
+        )}
       </div>
 
       {/* Dropdown collapsible form */}
