@@ -6,6 +6,7 @@ import { EditorialCommentsSection } from './components/EditorialCommentsSection'
 import { ImportantStoriesColumn } from './components/ImportantStoriesColumn';
 import { ApiConfigModal } from './components/ApiConfigModal';
 import { NewCommentDropdownBar } from './components/NewCommentDropdownBar';
+import { SecretaryScheduleModal } from './components/SecretaryScheduleModal';
 import {
   SiteTrafficRow,
   EngagementGroup,
@@ -49,6 +50,30 @@ export default function App() {
 
   const [selectedSecretary, setSelectedSecretary] = useState<SecretaryProfile>(SECRETARIES[0]);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+
+  // Sync selectedSecretary automatically whenever fromDate changes according to official roster
+  const syncSecretaryForDate = useCallback((dateStr: string) => {
+    const roster = getRosterForDate(dateStr);
+    const found = SECRETARIES.find(
+      (s) => s.id === roster.mainSecretary || s.name.toLowerCase() === roster.mainSecretaryName?.toLowerCase()
+    );
+    if (found) {
+      setSelectedSecretary(found);
+    } else {
+      setSelectedSecretary({
+        id: roster.mainSecretary,
+        name: roster.mainSecretaryName || roster.mainSecretary,
+        username: roster.mainSecretary,
+        avatarColor: 'bg-emerald-600',
+      });
+    }
+  }, []);
+
+  // Update selectedSecretary when fromDate changes
+  useEffect(() => {
+    syncSecretaryForDate(fromDate);
+  }, [fromDate, syncSecretaryForDate]);
 
   // Data states
   const [trafficData, setTrafficData] = useState<SiteTrafficRow[]>(MOCK_TRAFFIC_DATA_23_09);
@@ -261,12 +286,13 @@ export default function App() {
     showToast(`Đã thêm nhận xét cho ngày ${targetDate} (${data.category === 'vnexpress' ? 'VnExpress' : 'Site vệ tinh'})!`);
   };
 
-  // Compute recent dates (past 14 days) that have NO comments yet
-  // "Trường ngày nhận xét: mặc định active vào ngày gần nhất chưa có nhận xét."
+  // Compute current and past dates (today and past 14 days) that have NO comments yet
+  // "Chỉ cho chọn ngày hiện tại & quá khứ chưa có nhận xét, không cho chọn ngày tương lai."
   const availableDatesWithoutComments = useMemo(() => {
     const dates: string[] = [];
     const now = new Date();
-    for (let i = 1; i <= 14; i++) {
+    // i = 0 (hôm nay), i = 1..14 (các ngày quá khứ)
+    for (let i = 0; i <= 14; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const y = d.getFullYear();
@@ -350,6 +376,7 @@ export default function App() {
         onRefresh={() => loadData({ ...apiConfig, selectedDate, fromDate, toDate })}
         isLoading={isLoading}
         onOpenConfig={() => setIsConfigModalOpen(true)}
+        onOpenSchedule={() => setIsScheduleModalOpen(true)}
         isLiveApi={isLiveApi}
         onExportSummary={handleExportSummary}
       />
@@ -388,10 +415,10 @@ export default function App() {
                       const next = SECRETARIES[(idx + 1) % SECRETARIES.length];
                       handleSecretaryChange(next);
                     }}
-                    className="font-semibold text-slate-900 hover:text-[#9f224e] flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors"
-                    title="Nhấn để đổi nhanh thư ký trực"
+                    className="font-semibold text-slate-900 hover:text-[#9f224e] flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                    title="Nhấn để đổi nhanh thư ký trực hoặc đồng bộ từ Lịch trực"
                   >
-                    <span>{selectedSecretary.username}</span>
+                    <span>{selectedSecretary.name} (@{selectedSecretary.username})</span>
                     <span className="text-slate-400">∨</span>
                   </button>
                 </div>
@@ -446,6 +473,15 @@ export default function App() {
           toDate,
         }}
         onSaveConfig={handleSaveConfig}
+      />
+      {/* Secretary Schedule (Google Sheets sync) Modal */}
+      <SecretaryScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        onScheduleUpdated={() => {
+          syncSecretaryForDate(fromDate);
+          showToast('Đã cập nhật lịch trực Thư ký tòa soạn!');
+        }}
       />
     </div>
   );

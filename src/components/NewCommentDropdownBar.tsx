@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Calendar,
   ChevronDown,
@@ -70,11 +70,22 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
     return ymd;
   };
 
+  // Maximum date allowed: today (cannot select future dates)
+  const todayYmd = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }, []);
+
   const handleToggleDropdown = () => {
     if (!isOpen) {
       const target = availableDatesWithoutComments.length > 0 ? availableDatesWithoutComments[0] : currentViewingDate;
-      setSelectedTargetDate(target);
-      setRoster(getRosterForDate(target));
+      // Ensure target does not exceed today
+      const validTarget = target > todayYmd ? todayYmd : target;
+      setSelectedTargetDate(validTarget);
+      setRoster(getRosterForDate(validTarget));
     }
     setIsOpen(!isOpen);
   };
@@ -99,7 +110,7 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
 
   return (
     <div className="mb-4">
-      {/* Button "Thêm nhận xét" ở ngoài (thêm mới 1 nhận xét cho ngày mới) ở trên cùng */}
+      {/* Button "Thêm nhận xét" ở ngoài trên cùng */}
       <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-3 sm:px-4 shadow-2xs hover:border-[#9f224e]/50 transition-colors">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-[#9f224e] text-white flex items-center justify-center font-bold shadow-2xs shrink-0">
@@ -107,13 +118,10 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 text-sm">Thêm mới Nhận xét Thư ký trực</span>
-              <span className="text-[10px] uppercase font-bold text-[#9f224e] bg-rose-50 px-2 py-0.5 rounded border border-rose-200/60">
-                Ngày mới
-              </span>
+              <span className="font-bold text-slate-900 text-sm">Thêm mới nhận xét</span>
             </div>
             <p className="text-[11px] text-slate-500">
-              Mặc định: <strong className="text-slate-700">{formatVietnameseDate(selectedTargetDate)}</strong> (ngày gần nhất chưa có nhận xét) • Trưởng ban trực: <span className="font-semibold text-slate-800">@{roster.mainSecretary}</span> / <span className="font-semibold text-slate-800">@{roster.subSecretary}</span>
+              <strong className="text-slate-700">{formatVietnameseDate(selectedTargetDate)}</strong> • Trực chính: <span className="font-semibold text-slate-800">{roster.mainSecretaryName || roster.mainSecretary}</span> • Trực phụ: <span className="font-semibold text-slate-800">{roster.subSecretaryName || roster.subSecretary}</span>
             </p>
           </div>
         </div>
@@ -123,14 +131,14 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
           onClick={handleToggleDropdown}
           className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-xs cursor-pointer shrink-0 ${
             isOpen
-              ? 'bg-slate-800 text-white hover:bg-slate-900'
+              ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
               : 'bg-[#9f224e] text-white hover:bg-[#861b40]'
           }`}
         >
           {isOpen ? (
             <>
               <X className="w-3.5 h-3.5" />
-              <span>Đóng form</span>
+              <span>Đóng</span>
             </>
           ) : (
             <>
@@ -149,14 +157,23 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
           {/* Header row inside form: Ngày nhận xét & Tên trưởng ban lấy theo file sheet */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
             
-            {/* Trường ngày nhận xét: mặc định active vào ngày gần nhất chưa có nhận xét, bấm vào chọn ngày khác */}
+            {/* Trường ngày nhận xét: Chỉ cho chọn ngày hiện tại & quá khứ chưa có nhận xét, không cho chọn ngày tương lai */}
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-[#9f224e]" />
               <span className="text-xs font-bold text-slate-700">Ngày nhận xét:</span>
               <input
                 type="date"
                 value={selectedTargetDate}
-                onChange={(e) => e.target.value && handleDateSelect(e.target.value)}
+                max={todayYmd}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    if (e.target.value > todayYmd) {
+                      alert('Chỉ được chọn ngày hiện tại hoặc quá khứ, không chọn ngày tương lai.');
+                      return;
+                    }
+                    handleDateSelect(e.target.value);
+                  }
+                }}
                 className="text-xs font-semibold py-1 px-2.5 bg-white border border-slate-300 rounded focus:outline-none focus:border-[#9f224e] text-slate-800 cursor-pointer shadow-2xs"
               />
               <span className="text-xs text-slate-500 font-medium">
@@ -164,21 +181,19 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
               </span>
             </div>
 
-            {/* Tên trưởng ban: lấy dữ liệu từ file sheet tương ứng ngày đã chọn */}
+            {/* Tên Thư ký trực: Chỉ show tên Thư ký trực, bỏ tag acc (@username) */}
             <div className="flex flex-wrap items-center gap-3 text-xs">
-              <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-slate-200">
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded border border-slate-200">
                 <span className="text-slate-500 text-[11px]">Trực chính (VnExpress):</span>
-                <span className="font-bold text-slate-900 font-mono text-xs text-[#9f224e]">
-                  @{roster.mainSecretary}
+                <span className="font-bold text-[#9f224e] text-xs">
+                  {roster.mainSecretaryName || roster.mainSecretary}
                 </span>
-                <span className="text-slate-600 font-medium">({roster.mainSecretaryName || roster.mainSecretary})</span>
               </div>
-              <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-slate-200">
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded border border-slate-200">
                 <span className="text-slate-500 text-[11px]">Trực phụ (Site khác):</span>
-                <span className="font-bold text-slate-900 font-mono text-xs text-indigo-700">
-                  @{roster.subSecretary}
+                <span className="font-bold text-indigo-700 text-xs">
+                  {roster.subSecretaryName || roster.subSecretary}
                 </span>
-                <span className="text-slate-600 font-medium">({roster.subSecretaryName || roster.subSecretary})</span>
               </div>
             </div>
           </div>
@@ -199,7 +214,7 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
             >
               <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'vnexpress' ? 'bg-[#9f224e]' : 'bg-slate-300'}`} />
               <span>VnExpress</span>
-              <span className="text-[10px] text-slate-500 font-mono">(@{roster.mainSecretary})</span>
+              <span className="text-[10px] text-slate-500 font-medium">({roster.mainSecretaryName || roster.mainSecretary})</span>
             </button>
 
             {/* Tab nhỏ 2: Ngôi sao, English, Tia sáng */}
@@ -214,11 +229,11 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
             >
               <div className={`w-1.5 h-1.5 rounded-full ${activeTab === 'others' ? 'bg-indigo-600' : 'bg-slate-300'}`} />
               <span>Ngôi sao, English, Tia sáng</span>
-              <span className="text-[10px] text-slate-500 font-mono">(@{roster.subSecretary})</span>
+              <span className="text-[10px] text-slate-500 font-medium">({roster.subSecretaryName || roster.subSecretary})</span>
             </button>
           </div>
 
-          {/* Rich Editor nhập nội dung: Bỏ tiêu đề, Bỏ gắn nhãn tag, Thêm tính năng Insert ảnh */}
+          {/* Rich Editor nhập nội dung */}
           <RichCommentEditor
             key={`${activeTab}-${selectedTargetDate}`}
             isEditing={false}

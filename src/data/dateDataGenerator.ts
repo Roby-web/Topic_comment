@@ -456,7 +456,7 @@ export function generateDataForDateRange(
   const targetTs = Math.floor(new Date(`${fromDate}T00:00:00+07:00`).getTime() / 1000);
   
   // Clone baseline stories with adjusted IDs, timestamps, and realistic states
-  const shuffledStories = MOCK_STORIES.map((s, idx) => {
+  const shuffledStories = MOCK_STORIES.map((s: StoryItem, idx: number) => {
     const isPub = (idx + (seed % 3)) % 2 === 0;
     const deadlineOffset = 3600 * 8 + (idx * 3600);
     return {
