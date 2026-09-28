@@ -190,7 +190,7 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
             <RichCommentEditor
               isEditing={false}
               initialCategory="vnexpress"
-              initialHtml="<p><strong>- Điểm tin / Lưu ý:</strong> </p>"
+              initialHtml=""
               onSave={handleSaveNew}
               onCancel={() => setAddingCategory(null)}
             />
@@ -238,7 +238,7 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
             <RichCommentEditor
               isEditing={false}
               initialCategory="others"
-              initialHtml="<p><strong>- Ngôi sao / English / Tia sáng:</strong> </p>"
+              initialHtml=""
               onSave={handleSaveNew}
               onCancel={() => setAddingCategory(null)}
             />

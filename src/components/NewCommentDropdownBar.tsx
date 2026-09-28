@@ -223,11 +223,7 @@ export const NewCommentDropdownBar: React.FC<NewCommentDropdownBarProps> = ({
             key={`${activeTab}-${selectedTargetDate}`}
             isEditing={false}
             initialCategory={activeTab}
-            initialHtml={
-              activeTab === 'vnexpress'
-                ? `<p class="font-medium text-slate-900">Tổng quan:</p><ul class="list-none pl-0"><li>- </li></ul><p class="font-medium text-slate-900 mt-2">Lưu ý chung:</p><ul class="list-none pl-0"><li>- </li></ul>`
-                : `<p class="font-medium text-slate-900">Nhận xét Ngôi sao, English, Tia sáng:</p><ul class="list-none pl-0"><li>- </li></ul>`
-            }
+            initialHtml=""
             onSave={handleSave}
             onCancel={() => setIsOpen(false)}
           />
