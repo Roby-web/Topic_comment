@@ -203,8 +203,49 @@ export function buildApiUrls(config: {
   };
 }
 
-// Fetch with automatic fallback between direct and proxy
-async function fetchWithFallback(directUrl: string, proxyUrl: string, timeoutMs = 4000): Promise<any> {
+// Fast In-Memory Cache for editorial data by date range
+const editorialDataCache = new Map<string, ApiFetchResult>();
+
+// Returns immediate dataset synchronously (0ms latency) for any requested date
+export function getImmediateEditorialData(config: Partial<ApiConfig>): ApiFetchResult {
+  const fromDate = config.fromDate || config.selectedDate || '2026-09-24';
+  const toDate = config.toDate || config.selectedDate || '2026-09-24';
+  const cacheKey = `${fromDate}_${toDate}_${config.appId || DEFAULT_APP_ID}`;
+
+  if (editorialDataCache.has(cacheKey)) {
+    return editorialDataCache.get(cacheKey)!;
+  }
+
+  const dateSpecificDataset = generateDataForDateRange(fromDate, toDate);
+  const urls = buildApiUrls({
+    appId: config.appId || DEFAULT_APP_ID,
+    appSig: config.appSig || DEFAULT_APP_SIG,
+    fromDate,
+    toDate,
+  });
+
+  const result: ApiFetchResult = {
+    trafficData: dateSpecificDataset.trafficData,
+    engagementGroups: dateSpecificDataset.engagementGroups,
+    stories: dateSpecificDataset.stories.filter((s) => String(s.important) === '1'),
+    isLive: false,
+    activeFromDate: fromDate,
+    activeToDate: toDate,
+    storyDate: urls.effectiveStoryFrom,
+    defaultComment: dateSpecificDataset.comment,
+    calledUrls: {
+      storyUrl: urls.storyUrlDirect,
+      analyticsUrl: urls.analyticsUrlDirect,
+      engageUrl: urls.engageUrlDirect,
+    },
+  };
+
+  editorialDataCache.set(cacheKey, result);
+  return result;
+}
+
+// Fetch with automatic fallback between proxy and direct with fast timeout (1200ms)
+async function fetchWithFallback(directUrl: string, proxyUrl: string, timeoutMs = 1200): Promise<any> {
   const tryFetch = async (url: string) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -218,22 +259,32 @@ async function fetchWithFallback(directUrl: string, proxyUrl: string, timeoutMs 
     }
   };
 
-  // Try direct first (works in VnExpress office network / intranet / VPN)
+  // In standard browser environment outside vnexpress domain, direct URL causes CORS block or hangs.
+  // We prioritize proxyUrl first, which goes through Vite backend proxy without CORS issues.
+  const isVneOrigin = typeof window !== 'undefined' && window.location.hostname.includes('vnexpress.net');
+  const firstUrl = isVneOrigin ? directUrl : proxyUrl;
+  const secondUrl = isVneOrigin ? proxyUrl : directUrl;
+
   try {
-    return await tryFetch(directUrl);
-  } catch (err) {
-    // If direct failed (e.g. CORS or outside network), try via proxy route
+    return await tryFetch(firstUrl);
+  } catch {
     try {
-      return await tryFetch(proxyUrl);
-    } catch {
+      return await tryFetch(secondUrl);
+    } catch (err) {
       throw err;
     }
   }
 }
 
-export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchResult> {
+export async function fetchEditorialData(config: ApiConfig, forceRefresh = false): Promise<ApiFetchResult> {
   const fromDate = config.fromDate || config.selectedDate || '2026-09-23';
   const toDate = config.toDate || config.selectedDate || '2026-09-23';
+  const cacheKey = `${fromDate}_${toDate}_${config.appId || DEFAULT_APP_ID}`;
+
+  // If already cached and not force refreshing, return instantly
+  if (!forceRefresh && editorialDataCache.has(cacheKey) && editorialDataCache.get(cacheKey)!.isLive) {
+    return editorialDataCache.get(cacheKey)!;
+  }
 
   const urls = buildApiUrls({
     appId: config.appId || '1000000',
@@ -248,8 +299,6 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
     engageUrl: urls.engageUrlDirect,
   };
 
-  console.info(`[VnE Editorial API] Querying with fromdate=${fromDate}&todate=${toDate}`);
-
   // Base date-specific data generated for this specific date range
   const dateSpecificDataset = generateDataForDateRange(fromDate, toDate);
 
@@ -259,7 +308,7 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
   const storyDataset = dateSpecificDataset;
 
   if (!config.useLiveApi) {
-    return {
+    const fallbackResult: ApiFetchResult = {
       trafficData: dateSpecificDataset.trafficData,
       engagementGroups: dateSpecificDataset.engagementGroups,
       stories: storyDataset.stories.filter((s) => String(s.important) === '1'),
@@ -270,6 +319,8 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
       defaultComment: dateSpecificDataset.comment,
       calledUrls,
     };
+    editorialDataCache.set(cacheKey, fallbackResult);
+    return fallbackResult;
   }
 
   try {
@@ -615,7 +666,7 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
 
     const isAnyLiveSuccess = storySuccess || analyticsSuccess || engageSuccess;
 
-    return {
+    const finalResult: ApiFetchResult = {
       trafficData: parsedTraffic,
       engagementGroups: parsedEngage,
       stories: parsedStories,
@@ -626,9 +677,11 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
       defaultComment: extractedApiComment || dateSpecificDataset.comment,
       calledUrls,
     };
+    editorialDataCache.set(cacheKey, finalResult);
+    return finalResult;
   } catch (err: any) {
     console.warn('API fetch warning:', err);
-    return {
+    const fallbackResult: ApiFetchResult = {
       trafficData: dateSpecificDataset.trafficData,
       engagementGroups: dateSpecificDataset.engagementGroups,
       stories: storyDataset.stories.filter((s) => String(s.important) === '1'),
@@ -640,5 +693,7 @@ export async function fetchEditorialData(config: ApiConfig): Promise<ApiFetchRes
       calledUrls,
       error: err?.message || 'Không thể kết nối trực tiếp API VnExpress. Đang hiển thị dữ liệu theo ngày.',
     };
+    editorialDataCache.set(cacheKey, fallbackResult);
+    return fallbackResult;
   }
 }

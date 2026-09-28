@@ -17,7 +17,6 @@ interface HeaderProps {
   onRefresh: () => void;
   isLoading: boolean;
   onOpenConfig: () => void;
-  onOpenSchedule?: () => void;
   isLiveApi: boolean;
   onExportSummary?: () => void;
 }
@@ -30,7 +29,6 @@ export const Header: React.FC<HeaderProps> = ({
   onRefresh,
   isLoading,
   onOpenConfig,
-  onOpenSchedule,
   isLiveApi,
   onExportSummary,
 }) => {
@@ -249,20 +247,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#9f224e]' : ''}`} />
             </button>
-
-            {/* Lịch trực button */}
-            {onOpenSchedule && (
-              <button
-                type="button"
-                onClick={onOpenSchedule}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
-                title="Cập nhật link Google Sheets hoặc xem lịch trực Thư ký"
-              >
-                <Calendar className="w-3.5 h-3.5 text-[#9f224e]" />
-                <span className="hidden sm:inline">Lịch trực</span>
-              </button>
-            )}
-
           </div>
         </div>
       </div>

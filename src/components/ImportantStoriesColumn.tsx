@@ -382,21 +382,41 @@ export const ImportantStoriesColumn: React.FC<ImportantStoriesColumnProps> = ({
                     </>
                   )}
 
-                  {/* Vị trí Build Top nếu có (không background) */}
-                  {hasBuildTop && (
-                    <>
-                      <span className="text-slate-300">•</span>
-                      <span className="font-semibold text-[#9f224e] inline-flex items-center gap-1">
-                        <Globe className="w-3 h-3" />
-                        <span>
-                          Top{' '}
-                          {story.buildtop_info?.trangchu_beta?.position
-                            ? `Web #${story.buildtop_info.trangchu_beta.position}`
-                            : `Mobile #${story.buildtop_info?.trangchu_mobile?.position}`}
-                        </span>
-                      </span>
-                    </>
-                  )}
+                  {/* Vị trí Build Top nếu có (không background) - Tab 'Đã xuất bản' bỏ thông tin thứ hạng Top Web */}
+                  {(() => {
+                    const topWebPos = story.buildtop_info?.trangchu_beta?.position;
+                    const topMobilePos = story.buildtop_info?.trangchu_mobile?.position;
+
+                    // Ở tab "Đã xuất bản", bỏ hoàn toàn thông tin thứ hạng Top Web
+                    if (activeGroup === 'published') {
+                      if (!topMobilePos) return null;
+                      return (
+                        <>
+                          <span className="text-slate-300">•</span>
+                          <span className="font-semibold text-[#9f224e] inline-flex items-center gap-1">
+                            <Smartphone className="w-3 h-3" />
+                            <span>Top Mobile #{topMobilePos}</span>
+                          </span>
+                        </>
+                      );
+                    }
+
+                    // Các tab khác nếu có vị trí Top Web hoặc Top Mobile
+                    if (topWebPos || topMobilePos) {
+                      return (
+                        <>
+                          <span className="text-slate-300">•</span>
+                          <span className="font-semibold text-[#9f224e] inline-flex items-center gap-1">
+                            {topWebPos ? <Globe className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                            <span>
+                              Top {topWebPos ? `Web #${topWebPos}` : `Mobile #${topMobilePos}`}
+                            </span>
+                          </span>
+                        </>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 {/* Row 3: Acc phóng viên triển khai + Hạn hoàn thành */}

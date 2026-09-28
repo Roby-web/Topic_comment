@@ -6,7 +6,6 @@ import { EditorialCommentsSection } from './components/EditorialCommentsSection'
 import { ImportantStoriesColumn } from './components/ImportantStoriesColumn';
 import { ApiConfigModal } from './components/ApiConfigModal';
 import { NewCommentDropdownBar } from './components/NewCommentDropdownBar';
-import { SecretaryScheduleModal } from './components/SecretaryScheduleModal';
 import {
   SiteTrafficRow,
   EngagementGroup,
@@ -28,6 +27,7 @@ import {
   getSavedApiConfig,
   saveApiConfig,
   fetchEditorialData,
+  getImmediateEditorialData,
   getYesterdayYmd,
 } from './services/apiService';
 import { getRosterForDate } from './services/secretaryRosterService';
@@ -48,9 +48,20 @@ export default function App() {
     () => apiConfig.toDate || apiConfig.selectedDate || defaultYesterday
   );
 
-  const [selectedSecretary, setSelectedSecretary] = useState<SecretaryProfile>(SECRETARIES[0]);
+  const [selectedSecretary, setSelectedSecretary] = useState<SecretaryProfile>(() => {
+    const initDate = apiConfig.fromDate || apiConfig.selectedDate || defaultYesterday;
+    const roster = getRosterForDate(initDate);
+    const found = SECRETARIES.find(
+      (s) => s.id === roster.mainSecretary || s.name.toLowerCase() === roster.mainSecretaryName?.toLowerCase()
+    );
+    return found || {
+      id: roster.mainSecretary,
+      name: roster.mainSecretaryName || roster.mainSecretary,
+      username: roster.mainSecretary,
+      avatarColor: 'bg-emerald-600',
+    };
+  });
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   // Sync selectedSecretary automatically whenever fromDate changes according to official roster
   const syncSecretaryForDate = useCallback((dateStr: string) => {
@@ -70,20 +81,10 @@ export default function App() {
     }
   }, []);
 
-  // Update selectedSecretary when fromDate changes
-  useEffect(() => {
-    syncSecretaryForDate(fromDate);
-  }, [fromDate, syncSecretaryForDate]);
-
-  // Data states
-  const [trafficData, setTrafficData] = useState<SiteTrafficRow[]>(MOCK_TRAFFIC_DATA_23_09);
-  const [engagementGroups, setEngagementGroups] = useState<EngagementGroup[]>(MOCK_ENGAGEMENT_GROUPS_23_09);
-  const [stories, setStories] = useState<StoryItem[]>(MOCK_STORIES);
-  
   // Comments loaded by date:
   // If user has explicitly customized comments for this date, load customized version.
   // When no comment exists from API or user customization, leave it empty (never fabricate mock content).
-  const loadCommentsForDate = (dateKey: string, apiComment?: EditorialComment): EditorialComment[] => {
+  const loadCommentsForDate = useCallback((dateKey: string, apiComment?: EditorialComment): EditorialComment[] => {
     try {
       const savedUserCustomized = localStorage.getItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${dateKey}`);
       if (savedUserCustomized) {
@@ -98,20 +99,34 @@ export default function App() {
     }
     // Strictly return empty array if no comment for this date: "KHÔNG ĐƯỢC TỰ BỊA nội dung. Để trống & show text 'Chưa có nhận xét'"
     return [];
-  };
+  }, []);
 
+  // Compute immediate dataset for zero-latency initial load and switching
+  const initialEditorialData = useMemo(() => {
+    return getImmediateEditorialData({
+      ...apiConfig,
+      selectedDate,
+      fromDate,
+      toDate,
+    });
+  }, []);
+
+  // Data states initialized immediately for the active date
+  const [trafficData, setTrafficData] = useState<SiteTrafficRow[]>(() => initialEditorialData.trafficData);
+  const [engagementGroups, setEngagementGroups] = useState<EngagementGroup[]>(() => initialEditorialData.engagementGroups);
+  const [stories, setStories] = useState<StoryItem[]>(() => initialEditorialData.stories);
   const [comments, setComments] = useState<EditorialComment[]>(() =>
-    loadCommentsForDate(selectedDate)
+    loadCommentsForDate(fromDate, initialEditorialData.defaultComment)
   );
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLiveApi, setIsLiveApi] = useState(false);
-  const [storyDate, setStoryDate] = useState<string>(() => apiConfig.selectedDate || '2026-09-24');
+  const [storyDate, setStoryDate] = useState<string>(() => initialEditorialData.storyDate);
   const [calledUrls, setCalledUrls] = useState<{
     storyUrl?: string;
     analyticsUrl?: string;
     engageUrl?: string;
-  }>({});
+  }>(() => initialEditorialData.calledUrls);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -121,12 +136,14 @@ export default function App() {
     }, 3000);
   };
 
-  // Load data function with exact fromdate and todate passed to API
-  const loadData = useCallback(async (cfg: ApiConfig) => {
-    setIsLoading(true);
+  // Load data function with background sync (SWR pattern)
+  const loadData = useCallback(async (cfg: ApiConfig, isManual = false) => {
+    if (isManual) {
+      setIsLoading(true);
+    }
     const curFromDate = cfg.fromDate || cfg.selectedDate || '2026-09-24';
     try {
-      const res = await fetchEditorialData(cfg);
+      const res = await fetchEditorialData(cfg, isManual);
       setTrafficData(res.trafficData);
       setEngagementGroups(res.engagementGroups);
       setStories(res.stories);
@@ -146,8 +163,9 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [loadCommentsForDate]);
 
+  // Load / revalidate in background when dates or config change
   useEffect(() => {
     loadData({
       ...apiConfig,
@@ -157,12 +175,34 @@ export default function App() {
     });
   }, [selectedDate, fromDate, toDate, loadData, apiConfig]);
 
+  // Instantaneous date change handler: Zero-latency UI response
   const handleDateChange = (newDate: string, newFromDate?: string, newToDate?: string) => {
     const fDate = newFromDate || newDate;
     const tDate = newToDate || newDate;
     setSelectedDate(newDate);
     setFromDate(fDate);
     setToDate(tDate);
+
+    // ⚡ INSTANT UPDATE (0ms): render new date data IMMEDIATELY
+    const immediateData = getImmediateEditorialData({
+      ...apiConfig,
+      selectedDate: newDate,
+      fromDate: fDate,
+      toDate: tDate,
+    });
+    setTrafficData(immediateData.trafficData);
+    setEngagementGroups(immediateData.engagementGroups);
+    setStories(immediateData.stories);
+    setStoryDate(immediateData.storyDate);
+    setCalledUrls(immediateData.calledUrls);
+
+    // Sync secretary for this date immediately
+    syncSecretaryForDate(fDate);
+
+    // Sync comments for this date immediately
+    const dateComments = loadCommentsForDate(fDate, immediateData.defaultComment);
+    setComments(dateComments);
+
     const updated = {
       ...apiConfig,
       selectedDate: newDate,
@@ -173,7 +213,7 @@ export default function App() {
     saveApiConfig(updated);
     showToast(
       fDate === tDate
-        ? `Đã chuyển sang ngày ${fDate} (fromdate: ${fDate}, todate: ${tDate})`
+        ? `Đã chuyển sang ngày ${fDate}`
         : `Đã chọn khoảng từ ${fDate} đến ${tDate}`
     );
   };
@@ -373,10 +413,9 @@ export default function App() {
         onDateChange={handleDateChange}
         selectedSecretary={selectedSecretary}
         onSecretaryChange={handleSecretaryChange}
-        onRefresh={() => loadData({ ...apiConfig, selectedDate, fromDate, toDate })}
+        onRefresh={() => loadData({ ...apiConfig, selectedDate, fromDate, toDate }, true)}
         isLoading={isLoading}
         onOpenConfig={() => setIsConfigModalOpen(true)}
-        onOpenSchedule={() => setIsScheduleModalOpen(true)}
         isLiveApi={isLiveApi}
         onExportSummary={handleExportSummary}
       />
@@ -385,18 +424,20 @@ export default function App() {
       <main className="flex-1 max-w-[1720px] w-full mx-auto p-3 sm:p-5 lg:p-6">
         {/* Two-Column Responsive Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-          {/* LEFT COLUMN: Exactly matching the layout, cards & info from image.png (approx 62% width) */}
+          {/* LEFT COLUMN: Approximately 62% width */}
           <div className="xl:col-span-7 2xl:col-span-8 space-y-4">
-            {/* Button "Thêm mới Nhận xét" chuyển lên đầu, trên ngày đang xem. Bấm vào xổ xuống Form nhập nhận xét */}
-            <NewCommentDropdownBar
-              currentViewingDate={fromDate}
-              availableDatesWithoutComments={availableDatesWithoutComments}
-              onAddComment={handleAddNewCommentFromTop}
-            />
+            {/* Button "Thêm mới Nhận xét": Chỉ hiển thị ở ngày chưa có nhận xét */}
+            {comments.length === 0 && availableDatesWithoutComments.length > 0 && (
+              <NewCommentDropdownBar
+                currentViewingDate={fromDate}
+                availableDatesWithoutComments={availableDatesWithoutComments}
+                onAddComment={handleAddNewCommentFromTop}
+              />
+            )}
 
             {/* Master Card Enclosure matching image.png */}
             <div className="bg-white rounded-xl border border-slate-300 p-4 sm:p-6 shadow-xs space-y-5">
-              {/* Card Header matching image.png: "Thứ tư, 23/9" in red + "Thư ký trực: thuytrang v" */}
+              {/* Card Header: Ngày đang xem + Thư ký trực */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl sm:text-2xl font-bold font-serif text-[#9f224e] tracking-tight">
@@ -416,7 +457,7 @@ export default function App() {
                       handleSecretaryChange(next);
                     }}
                     className="font-semibold text-slate-900 hover:text-[#9f224e] flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                    title="Nhấn để đổi nhanh thư ký trực hoặc đồng bộ từ Lịch trực"
+                    title="Nhấn để đổi nhanh thư ký trực"
                   >
                     <span>{selectedSecretary.name} (@{selectedSecretary.username})</span>
                     <span className="text-slate-400">∨</span>
@@ -473,15 +514,6 @@ export default function App() {
           toDate,
         }}
         onSaveConfig={handleSaveConfig}
-      />
-      {/* Secretary Schedule (Google Sheets sync) Modal */}
-      <SecretaryScheduleModal
-        isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
-        onScheduleUpdated={() => {
-          syncSecretaryForDate(fromDate);
-          showToast('Đã cập nhật lịch trực Thư ký tòa soạn!');
-        }}
       />
     </div>
   );
