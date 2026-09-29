@@ -6,6 +6,7 @@ import { RichCommentEditor } from './RichCommentEditor';
 interface EditorialCommentsSectionProps {
   comments: EditorialComment[];
   selectedSecretary: SecretaryProfile;
+  subSecretary?: SecretaryProfile;
   onUpdateComment: (id: string, updated: { title: string; html: string; category?: CommentCategory }) => void;
   onDeleteComment: (id: string) => void;
   onAddComment: (comment: { title: string; html: string; category?: CommentCategory }) => void;
@@ -30,6 +31,7 @@ function cleanRenderedHtml(html: string): string {
 export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> = ({
   comments,
   selectedSecretary,
+  subSecretary,
   onUpdateComment,
   onDeleteComment,
   onAddComment,
@@ -137,7 +139,13 @@ export const EditorialCommentsSection: React.FC<EditorialCommentsSectionProps> =
 
         {/* Author & Timestamp meta line */}
         <div className="flex items-center gap-2 mb-1.5 text-[11px] text-slate-400">
-          <span className="font-semibold text-slate-700">@{comment.author || selectedSecretary.username}</span>
+          <span className="font-semibold text-slate-700">
+            @{comment.author || (comment.category === 'others' && subSecretary ? subSecretary.username : selectedSecretary.username)}
+          </span>
+          <span>•</span>
+          <span className="text-slate-500 font-medium">
+            {comment.role || (comment.category === 'others' ? 'Thư ký trực phụ (Site khác)' : 'Thư ký trực chính (VnExpress)')}
+          </span>
           <span>•</span>
           <span>{comment.updatedAt || '08:00'}</span>
         </div>

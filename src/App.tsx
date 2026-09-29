@@ -20,7 +20,6 @@ import {
   MOCK_ENGAGEMENT_GROUPS_23_09,
   MOCK_STORIES,
   MOCK_EDITORIAL_COMMENTS,
-  MOCK_EDITORIAL_COMMENTS_24_09,
 } from './data/mockData';
 import {
   ApiConfig,
@@ -30,10 +29,16 @@ import {
   getImmediateEditorialData,
   getYesterdayYmd,
 } from './services/apiService';
-import { getRosterForDate } from './services/secretaryRosterService';
+import {
+  getRosterForDate,
+  getSavedSheetUrl,
+  fetchRosterFromGoogleSheet,
+  getMainSecretaryProfile,
+  getSubSecretaryProfile,
+} from './services/secretaryRosterService';
 import { AlertCircle, Check } from 'lucide-react';
 
-const STORAGE_KEY_COMMENTS_PREFIX = 'vne_editorial_comments_by_date_v2';
+const STORAGE_KEY_COMMENTS_PREFIX = 'vne_editorial_comments_by_date_v6';
 
 export default function App() {
   const [apiConfig, setApiConfig] = useState<ApiConfig>(getSavedApiConfig);
@@ -51,40 +56,26 @@ export default function App() {
   const [selectedSecretary, setSelectedSecretary] = useState<SecretaryProfile>(() => {
     const initDate = apiConfig.fromDate || apiConfig.selectedDate || defaultYesterday;
     const roster = getRosterForDate(initDate);
-    const found = SECRETARIES.find(
-      (s) => s.id === roster.mainSecretary || s.name.toLowerCase() === roster.mainSecretaryName?.toLowerCase()
-    );
-    return found || {
-      id: roster.mainSecretary,
-      name: roster.mainSecretaryName || roster.mainSecretary,
-      username: roster.mainSecretary,
-      avatarColor: 'bg-emerald-600',
-    };
+    return getMainSecretaryProfile(roster);
+  });
+  const [subSecretary, setSubSecretary] = useState<SecretaryProfile>(() => {
+    const initDate = apiConfig.fromDate || apiConfig.selectedDate || defaultYesterday;
+    const roster = getRosterForDate(initDate);
+    return getSubSecretaryProfile(roster);
   });
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
-  // Sync selectedSecretary automatically whenever fromDate changes according to official roster
+  // Sync both main and sub secretaries automatically whenever date changes according to official roster
   const syncSecretaryForDate = useCallback((dateStr: string) => {
     const roster = getRosterForDate(dateStr);
-    const found = SECRETARIES.find(
-      (s) => s.id === roster.mainSecretary || s.name.toLowerCase() === roster.mainSecretaryName?.toLowerCase()
-    );
-    if (found) {
-      setSelectedSecretary(found);
-    } else {
-      setSelectedSecretary({
-        id: roster.mainSecretary,
-        name: roster.mainSecretaryName || roster.mainSecretary,
-        username: roster.mainSecretary,
-        avatarColor: 'bg-emerald-600',
-      });
-    }
+    setSelectedSecretary(getMainSecretaryProfile(roster));
+    setSubSecretary(getSubSecretaryProfile(roster));
   }, []);
 
   // Comments loaded by date:
   // If user has explicitly customized comments for this date, load customized version.
   // When no comment exists from API or user customization, leave it empty (never fabricate mock content).
-  const loadCommentsForDate = useCallback((dateKey: string, apiComment?: EditorialComment): EditorialComment[] => {
+  const loadCommentsForDate = useCallback((dateKey: string, apiComment?: EditorialComment, apiComments?: EditorialComment[]): EditorialComment[] => {
     try {
       const savedUserCustomized = localStorage.getItem(`${STORAGE_KEY_COMMENTS_PREFIX}_user_edited_${dateKey}`);
       if (savedUserCustomized) {
@@ -92,6 +83,10 @@ export default function App() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
+
+    if (Array.isArray(apiComments) && apiComments.length > 0) {
+      return apiComments;
+    }
 
     // Only return comment if actually provided by API/database
     if (apiComment && apiComment.htmlContent && apiComment.htmlContent.trim()) {
@@ -116,7 +111,7 @@ export default function App() {
   const [engagementGroups, setEngagementGroups] = useState<EngagementGroup[]>(() => initialEditorialData.engagementGroups);
   const [stories, setStories] = useState<StoryItem[]>(() => initialEditorialData.stories);
   const [comments, setComments] = useState<EditorialComment[]>(() =>
-    loadCommentsForDate(fromDate, initialEditorialData.defaultComment)
+    loadCommentsForDate(fromDate, initialEditorialData.defaultComment, initialEditorialData.defaultComments)
   );
 
   const [isLoading, setIsLoading] = useState(false);
@@ -152,8 +147,16 @@ export default function App() {
       setCalledUrls(res.calledUrls);
 
       // Synchronize comments for this date
-      const dateComments = loadCommentsForDate(curFromDate, res.defaultComment);
+      const dateComments = loadCommentsForDate(curFromDate, res.defaultComment, res.defaultComments);
       setComments(dateComments);
+
+      // Synchronize duty secretary if provided by API (e.g. past dates with actual editorial comments)
+      if (res.dutySecretary) {
+        setSelectedSecretary(res.dutySecretary);
+      }
+      if (res.subSecretary) {
+        setSubSecretary(res.subSecretary);
+      }
 
       if (res.error) {
         console.info(res.error);
@@ -164,6 +167,20 @@ export default function App() {
       setIsLoading(false);
     }
   }, [loadCommentsForDate]);
+
+  // Background auto-sync with Google Sheet schedule if URL was saved
+  useEffect(() => {
+    const sheetUrl = getSavedSheetUrl();
+    if (sheetUrl) {
+      fetchRosterFromGoogleSheet(sheetUrl)
+        .then((res) => {
+          if (res.success) {
+            syncSecretaryForDate(fromDate);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [fromDate, syncSecretaryForDate]);
 
   // Load / revalidate in background when dates or config change
   useEffect(() => {
@@ -200,7 +217,7 @@ export default function App() {
     syncSecretaryForDate(fDate);
 
     // Sync comments for this date immediately
-    const dateComments = loadCommentsForDate(fDate, immediateData.defaultComment);
+    const dateComments = loadCommentsForDate(fDate, immediateData.defaultComment, immediateData.defaultComments);
     setComments(dateComments);
 
     const updated = {
@@ -220,7 +237,12 @@ export default function App() {
 
   const handleSecretaryChange = (sec: SecretaryProfile) => {
     setSelectedSecretary(sec);
-    showToast(`Đã chọn Thư ký trực: ${sec.name} (@${sec.username})`);
+    showToast(`Đã chọn Thư ký trực chính: ${sec.name} (@${sec.username})`);
+  };
+
+  const handleSubSecretaryChange = (sec: SecretaryProfile) => {
+    setSubSecretary(sec);
+    showToast(`Đã chọn Thư ký trực phụ: ${sec.name} (@${sec.username})`);
   };
 
   const handleSaveConfig = (newConfig: ApiConfig) => {
@@ -448,20 +470,40 @@ export default function App() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs text-slate-700">
-                  <span className="text-slate-500 font-normal">Thư ký trực:</span>
-                  <button
-                    onClick={() => {
-                      const idx = SECRETARIES.findIndex((s) => s.id === selectedSecretary.id);
-                      const next = SECRETARIES[(idx + 1) % SECRETARIES.length];
-                      handleSecretaryChange(next);
-                    }}
-                    className="font-semibold text-slate-900 hover:text-[#9f224e] flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                    title="Nhấn để đổi nhanh thư ký trực"
-                  >
-                    <span>{selectedSecretary.name} (@{selectedSecretary.username})</span>
-                    <span className="text-slate-400">∨</span>
-                  </button>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-700">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 font-normal">Trực chính (VnExpress):</span>
+                    <button
+                      onClick={() => {
+                        const idx = SECRETARIES.findIndex((s) => s.id === selectedSecretary.id);
+                        const next = SECRETARIES[(idx + 1) % SECRETARIES.length];
+                        handleSecretaryChange(next);
+                      }}
+                      className="font-semibold text-slate-900 hover:text-[#9f224e] flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer bg-slate-50 border border-slate-200"
+                      title="Nhấn để đổi nhanh thư ký trực chính"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+                      <span>{selectedSecretary.name} (@{selectedSecretary.username})</span>
+                      <span className="text-slate-400">∨</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 font-normal">Trực phụ (Site khác):</span>
+                    <button
+                      onClick={() => {
+                        const idx = SECRETARIES.findIndex((s) => s.id === subSecretary.id);
+                        const next = SECRETARIES[(idx + 1) % SECRETARIES.length];
+                        handleSubSecretaryChange(next);
+                      }}
+                      className="font-semibold text-slate-900 hover:text-[#9f224e] flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer bg-slate-50 border border-slate-200"
+                      title="Nhấn để đổi nhanh thư ký trực phụ"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-purple-500 inline-block shrink-0"></span>
+                      <span>{subSecretary.name} (@{subSecretary.username})</span>
+                      <span className="text-slate-400">∨</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -480,6 +522,7 @@ export default function App() {
                 <EditorialCommentsSection
                   comments={comments}
                   selectedSecretary={selectedSecretary}
+                  subSecretary={subSecretary}
                   onUpdateComment={handleUpdateComment}
                   onDeleteComment={handleDeleteComment}
                   onAddComment={handleAddComment}

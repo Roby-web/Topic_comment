@@ -13,6 +13,16 @@ export const TrafficSection: React.FC<TrafficSectionProps> = ({ data, lastUpdate
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeSiteHighlight, setActiveSiteHighlight] = useState<string | null>(null);
 
+  // Ensure canonical order: All Sites -> VnExpress -> Ngôi Sao -> English -> Tia Sáng
+  const siteOrder = ['all', '-1', '1000000', '1002835', '1003888', '1006614'];
+  const sortedData = [...data].sort((a, b) => {
+    if (a.isTotal) return -1;
+    if (b.isTotal) return 1;
+    const idxA = siteOrder.indexOf(String(a.id));
+    const idxB = siteOrder.indexOf(String(b.id));
+    return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+  });
+
   // Render a cell metric with current value + Yest + Last Week
   const renderMetricCell = (metric: TrafficMetric, isArticles = false) => {
     const isYestPos = (metric.changeVsYesterday ?? 0) > 0;
@@ -104,7 +114,7 @@ export const TrafficSection: React.FC<TrafficSectionProps> = ({ data, lastUpdate
           </thead>
 
           <tbody className="divide-y divide-slate-100 text-slate-700">
-            {data.map((row, idx) => {
+            {sortedData.map((row, idx) => {
               // Mặc định show All sites & VnExpress. Bấm Mở rộng mới show tiếp 3 sites còn lại.
               const isMainRow = row.isTotal || row.name.toLowerCase().includes('vnexpress');
               if (!isExpanded && !isMainRow) {
@@ -154,7 +164,7 @@ export const TrafficSection: React.FC<TrafficSectionProps> = ({ data, lastUpdate
           onClick={() => setIsExpanded(!isExpanded)}
           className="inline-flex items-center gap-1 text-xs text-[#9f224e] hover:text-[#7e173b] font-medium transition-colors cursor-pointer py-1 px-3 rounded hover:bg-rose-50"
         >
-          <span>{isExpanded ? 'Thu gọn' : 'Mở rộng chi tiết 3 sites'}</span>
+          <span>{isExpanded ? 'Thu gọn' : 'Xem thêm'}</span>
           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
       </div>

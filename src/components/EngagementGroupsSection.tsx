@@ -58,8 +58,10 @@ export const EngagementGroupsSection: React.FC<EngagementGroupsSectionProps> = (
 
   const formatDelta = (val: number | null) => {
     if (val === null || val === undefined) return '-';
+    if (val === 0) return '0%';
     const sign = val > 0 ? '+' : '';
-    return `${sign}${val}%`;
+    const formatted = String(val).replace('.', ',');
+    return `${sign}${formatted}%`;
   };
 
   return (

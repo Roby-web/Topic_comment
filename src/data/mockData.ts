@@ -99,6 +99,58 @@ export const MOCK_ENGAGEMENT_GROUPS_23_09: EngagementGroup[] = [
   },
 ];
 
+// Dữ liệu chuẩn xác thực ngày Thứ 6 (25/09/2026) cung cấp từ hệ thống tòa soạn
+export const MOCK_ENGAGEMENT_GROUPS_25_09: EngagementGroup[] = [
+  {
+    id: 'hieu_qua_cao',
+    name: 'HIỆU QUẢ CAO',
+    articleCount: 57,
+    articleSharePct: 27,
+    pageviewCount: 2100000,
+    pageviewFormatted: '2.1M PV',
+    pageviewSharePct: 54,
+    pageviewChangeVsYesterday: 9,
+    pageviewChangeVsLastWeek: -18,
+    color: 'emerald',
+  },
+  {
+    id: 'views_cao',
+    name: 'VIEWS CAO',
+    articleCount: 28,
+    articleSharePct: 14,
+    pageviewCount: 900000,
+    pageviewFormatted: '0.9M PV',
+    pageviewSharePct: 23,
+    pageviewChangeVsYesterday: -1,
+    pageviewChangeVsLastWeek: 14,
+    color: 'purple',
+  },
+  {
+    id: 'tuong_tac_tot',
+    name: 'TƯƠNG TÁC TỐT',
+    articleCount: 24,
+    articleSharePct: 12,
+    pageviewCount: 200000,
+    pageviewFormatted: '0.2M PV',
+    pageviewSharePct: 5,
+    pageviewChangeVsYesterday: -30,
+    pageviewChangeVsLastWeek: -1,
+    color: 'blue',
+  },
+  {
+    id: 'can_nhac',
+    name: 'CÂN NHẮC',
+    articleCount: 97,
+    articleSharePct: 46,
+    pageviewCount: 700000,
+    pageviewFormatted: '0.7M PV',
+    pageviewSharePct: 18,
+    pageviewChangeVsYesterday: 25,
+    pageviewChangeVsLastWeek: 7,
+    color: 'amber',
+  },
+];
+
 export const MOCK_STORIES: StoryItem[] = [
   {
     story_id: '1001',
@@ -196,18 +248,5 @@ export const MOCK_EDITORIAL_COMMENTS: EditorialComment[] = [
     category: 'others',
     htmlContent:
       '<p><strong>Lưu ý:</strong> Đẩy mạnh các bài dịch độc quyền trên VnExpress International.</p>',
-  },
-];
-
-export const MOCK_EDITORIAL_COMMENTS_24_09: EditorialComment[] = [
-  {
-    id: 'c-vne-24',
-    author: 'Thanh Vân',
-    role: 'Thư ký trực chính (VnExpress)',
-    updatedAt: '24/09/2026 21:00',
-    dateStr: '2026-09-24',
-    summaryTitle: 'Nhận xét VnExpress',
-    category: 'vnexpress',
-    htmlContent: '<p>Lượng traffic ngày 24/09 tăng trưởng đều ở các luồng tin kinh tế và công nghệ.</p>',
   },
 ];

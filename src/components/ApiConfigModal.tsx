@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
-import { X, Key, Server, Check, Info, Copy, ExternalLink, RefreshCw } from 'lucide-react';
+import { X, Key, Server, Check, Info, Copy, ExternalLink, RefreshCw, FileSpreadsheet, Download } from 'lucide-react';
 import { ApiConfig, buildApiUrls } from '../services/apiService';
+import {
+  getSavedSheetUrl,
+  fetchRosterFromGoogleSheet,
+  parseRosterCsv,
+  saveScheduleList,
+} from '../services/secretaryRosterService';
 
 interface ApiConfigModalProps {
   isOpen: boolean;
@@ -21,6 +27,13 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({
     config.useLiveApi !== undefined ? config.useLiveApi : true
   );
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  // Google Sheets Roster Sync states
+  const [sheetUrl, setSheetUrl] = useState(() => getSavedSheetUrl());
+  const [isSyncingSheet, setIsSyncingSheet] = useState(false);
+  const [sheetSyncStatus, setSheetSyncStatus] = useState<string | null>(null);
+  const [showDirectPaste, setShowDirectPaste] = useState(false);
+  const [tsvRawText, setTsvRawText] = useState('');
 
   if (!isOpen) return null;
 
@@ -223,6 +236,98 @@ export const ApiConfigModal: React.FC<ApiConfigModalProps> = ({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Lịch trực Ban Thư ký (Google Sheet TSV) */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Lịch trực Thư ký tòa soạn (Google Sheet TSV)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDirectPaste(!showDirectPaste)}
+                className="text-[11px] text-[#9f224e] hover:underline font-medium"
+              >
+                {showDirectPaste ? 'Dùng liên kết Sheet' : 'Hoặc dán TSV trực tiếp'}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-normal">
+              Đồng bộ bảng phân công nhân sự trực chính (Cột C: VnExpress) và trực phụ (Cột D: Ngôi sao, English, Tia sáng) từ link Google Sheets của tòa soạn.
+            </p>
+
+            {!showDirectPaste ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={sheetUrl}
+                    onChange={(e) => setSheetUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/.../export?format=tsv"
+                    className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded text-slate-800 text-xs focus:outline-none focus:border-[#9f224e]"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!sheetUrl.trim()) {
+                        setSheetSyncStatus('Vui lòng nhập link Google Sheet');
+                        return;
+                      }
+                      setIsSyncingSheet(true);
+                      setSheetSyncStatus(null);
+                      const res = await fetchRosterFromGoogleSheet(sheetUrl.trim());
+                      setIsSyncingSheet(false);
+                      if (res.success) {
+                        setSheetSyncStatus(`✅ Đã đồng bộ thành công ${res.count} ngày từ Google Sheets!`);
+                      } else {
+                        setSheetSyncStatus(`⚠️ ${res.error || 'Lỗi tải Sheet'}`);
+                      }
+                    }}
+                    disabled={isSyncingSheet}
+                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-semibold flex items-center gap-1 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+                  >
+                    <Download className={`w-3.5 h-3.5 ${isSyncingSheet ? 'animate-bounce' : ''}`} />
+                    <span>{isSyncingSheet ? 'Đang tải...' : 'Đồng bộ ngay'}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <textarea
+                  value={tsvRawText}
+                  onChange={(e) => setTsvRawText(e.target.value)}
+                  placeholder="Dán toàn bộ nội dung copy từ Google Sheets hoặc file TSV/CSV vào đây (gồm Cột Thứ, Ngày, Trực chính, Trực phụ)..."
+                  rows={4}
+                  className="w-full p-2 bg-white border border-slate-200 rounded text-[11px] font-mono text-slate-800 focus:outline-none focus:border-[#9f224e]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!tsvRawText.trim()) return;
+                    const parsed = parseRosterCsv(tsvRawText);
+                    if (parsed.length > 0) {
+                      saveScheduleList(parsed);
+                      setSheetSyncStatus(`✅ Đã nạp thành công ${parsed.length} ngày từ dữ liệu TSV!`);
+                      setShowDirectPaste(false);
+                      setTsvRawText('');
+                    } else {
+                      setSheetSyncStatus('⚠️ Không tìm thấy dòng ngày nào hợp lệ.');
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Áp dụng dữ liệu TSV đã dán
+                </button>
+              </div>
+            )}
+
+            {sheetSyncStatus && (
+              <div className="text-[11px] p-2 bg-white rounded border border-slate-200 text-slate-700 font-medium">
+                {sheetSyncStatus}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

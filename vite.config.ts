@@ -17,12 +17,20 @@ export default defineConfig(() => {
           target: 'https://editor.vnexpress.net',
           changeOrigin: true,
           secure: false,
+          headers: {
+            Referer: 'https://editor.vnexpress.net',
+            Origin: 'https://editor.vnexpress.net',
+          },
           rewrite: (path) => path.replace(/^\/api\/vne-editor/, ''),
         },
         '/api/vne-realtime': {
           target: 'https://api-realtime.vnexpress.net',
           changeOrigin: true,
           secure: false,
+          headers: {
+            Referer: 'https://editor.vnexpress.net',
+            Origin: 'https://editor.vnexpress.net',
+          },
           rewrite: (path) => path.replace(/^\/api\/vne-realtime/, ''),
         },
       },

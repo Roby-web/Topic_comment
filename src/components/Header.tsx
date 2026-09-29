@@ -167,6 +167,57 @@ export const Header: React.FC<HeaderProps> = ({
                       {isYesterday && <Check className="w-4 h-4 text-[#9f224e]" />}
                     </button>
 
+                    {/* Quick Preset: Thứ sáu (25/9) */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSingleDate('2026-09-25')}
+                      className={`w-full text-left px-3 py-2 rounded text-xs flex items-center justify-between transition-colors ${
+                        fromDate === '2026-09-25'
+                          ? 'bg-rose-50 text-[#9f224e] font-semibold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">Thứ sáu, 25/9</span>
+                        <span className="text-slate-400 font-normal">(57 bài HQ)</span>
+                      </div>
+                      {fromDate === '2026-09-25' && <Check className="w-4 h-4 text-[#9f224e]" />}
+                    </button>
+
+                    {/* Quick Preset: Thứ năm (24/9) */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSingleDate('2026-09-24')}
+                      className={`w-full text-left px-3 py-2 rounded text-xs flex items-center justify-between transition-colors ${
+                        fromDate === '2026-09-24'
+                          ? 'bg-rose-50 text-[#9f224e] font-semibold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">Thứ năm, 24/9</span>
+                        <span className="text-slate-400 font-normal">(Trần Lê / Nhiêu Huy)</span>
+                      </div>
+                      {fromDate === '2026-09-24' && <Check className="w-4 h-4 text-[#9f224e]" />}
+                    </button>
+
+                    {/* Quick Preset: Thứ tư (23/9) */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSingleDate('2026-09-23')}
+                      className={`w-full text-left px-3 py-2 rounded text-xs flex items-center justify-between transition-colors ${
+                        fromDate === '2026-09-23'
+                          ? 'bg-rose-50 text-[#9f224e] font-semibold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">Thứ tư, 23/9</span>
+                        <span className="text-slate-400 font-normal">(101 bài HQ)</span>
+                      </div>
+                      {fromDate === '2026-09-23' && <Check className="w-4 h-4 text-[#9f224e]" />}
+                    </button>
+
                     {/* Option 3: Ngày khác - bấm vào xổ ra calendar chọn 1 ngày */}
                     <div className="pt-1 border-t border-slate-100">
                       <button

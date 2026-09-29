@@ -1,14 +1,33 @@
 @import "tailwindcss";
 
 @layer base {
-  /* Ensure proper typography rendering for Vietnamese */
   body {
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: #fafafa;
+    color: #202020;
   }
 
-  .font-serif {
-    font-family: 'Merriweather', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif;
-    letter-spacing: -0.01em;
+  /* Mandatory Typography Rule (Priority #1 in Design.md):
+     1. Merriweather (serif): Article Titles ONLY.
+     2. Merriweather Sans: Short phrases under 8 words (UI labels, button labels, headings).
+     3. Arial: All other cases (article content, sapo, long text, tables, disclaimers).
+  */
+  .font-serif, .font-article-title {
+    font-family: 'Merriweather', Georgia, serif;
+    letter-spacing: 0;
+  }
+
+  .font-sans, .font-ui, h1, h2, h3, h4, h5, button, label {
+    font-family: 'Merriweather Sans', sans-serif;
+  }
+
+  .font-body, p, table, input, textarea, select {
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  }
+
+  .font-mono {
+    font-family: 'Roboto Mono', monospace;
   }
 }
